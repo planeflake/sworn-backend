@@ -1,0 +1,470 @@
+{
+  "buildings": [
+    {
+      "id": "house",
+      "name": "House",
+      "description": "Basic housing for settlers",
+      "category": "housing",
+      "resource_requirements": {
+        "wood": 10,
+        "stone": 5
+      },
+      "personnel_requirements": {},
+      "capacity": 4,
+      "effects": {
+        "housing_capacity": 4,
+        "morale": 1
+      },
+      "upgrade_path": ["improved_house", "stone_house"],
+      "area_type_bonuses": {
+        "forest": {"resource_cost": {"wood": -2}},
+        "mountains": {"resource_cost": {"stone": -2}}
+      }
+    },
+    {
+      "id": "church",
+      "name": "Church",
+      "description": "Place of worship that improves morale",
+      "category": "community",
+      "resource_requirements": {
+        "wood": 20,
+        "stone": 30,
+        "glass": 5
+      },
+      "personnel_requirements": {
+        "priest": 1
+      },
+      "capacity": 0,
+      "effects": {
+        "morale": 10,
+        "education": 5,
+        "healing_rate": 1.2
+      },
+      "upgrade_path": ["cathedral"],
+      "area_type_bonuses": {}
+    },
+    {
+      "id": "blacksmith",
+      "name": "Blacksmith",
+      "description": "Crafts metal tools and weapons",
+      "category": "production",
+      "resource_requirements": {
+        "stone": 25,
+        "wood": 15,
+        "metal": 10
+      },
+      "personnel_requirements": {
+        "blacksmith": 1
+      },
+      "capacity": 0,
+      "effects": {
+        "tool_production_rate": 1.5,
+        "weapon_production_rate": 1,
+        "metal_consumption_rate": 1.2
+      },
+      "upgrade_path": ["forge", "armory"],
+      "area_type_bonuses": {
+        "mountains": {"effects": {"tool_production_rate": 1.8}}
+      }
+    },
+    {
+      "id": "farm",
+      "name": "Farm",
+      "description": "Produces food from crops",
+      "category": "production",
+      "resource_requirements": {
+        "wood": 15,
+        "stone": 5
+      },
+      "personnel_requirements": {
+        "farmer": 2
+      },
+      "capacity": 0,
+      "effects": {
+        "food_production_rate": 2,
+        "wheat_production_rate": 1.5,
+        "corn_production_rate": 1.5
+      },
+      "upgrade_path": ["large_farm", "plantation"],
+      "area_type_bonuses": {
+        "plains": {"effects": {"food_production_rate": 2.5}},
+        "forest": {"effects": {"food_production_rate": 0.8}}
+      }
+    },
+    {
+      "id": "tavern",
+      "name": "Tavern",
+      "description": "Place for settlers to relax and socialize",
+      "category": "community",
+      "resource_requirements": {
+        "wood": 25,
+        "stone": 10,
+        "food": 10
+      },
+      "personnel_requirements": {
+        "innkeeper": 1
+      },
+      "capacity": 0,
+      "effects": {
+        "morale": 8,
+        "food_consumption_rate": 1.2,
+        "income": 5,
+        "trader_attraction_rate": 1.3
+      },
+      "upgrade_path": ["inn"],
+      "area_type_bonuses": {}
+    },
+    {
+      "id": "watchtower",
+      "name": "Watchtower",
+      "description": "Provides defense and early warning of threats",
+      "category": "defense",
+      "resource_requirements": {
+        "wood": 20,
+        "stone": 15
+      },
+      "personnel_requirements": {
+        "guard": 2
+      },
+      "capacity": 0,
+      "effects": {
+        "defense_rating": 5,
+        "threat_detection_range": 2,
+        "visibility_range": 3
+      },
+      "upgrade_path": ["guard_tower", "fortress_tower"],
+      "area_type_bonuses": {
+        "hills": {"effects": {"visibility_range": 4}},
+        "mountains": {"effects": {"visibility_range": 5}}
+      }
+    },
+    {
+      "id": "market",
+      "name": "Market",
+      "description": "Center for trade and commerce",
+      "category": "economy",
+      "resource_requirements": {
+        "wood": 25,
+        "stone": 20,
+        "cloth": 10
+      },
+      "personnel_requirements": {
+        "merchant": 2
+      },
+      "capacity": 0,
+      "effects": {
+        "income": 10,
+        "trade_efficiency": 1.5,
+        "trader_attraction_rate": 2,
+        "resource_variety": 1.3
+      },
+      "upgrade_path": ["trading_post", "merchant_guild"],
+      "area_type_bonuses": {
+        "plains": {"effects": {"trade_efficiency": 1.7}},
+        "coastal": {"effects": {"trade_efficiency": 1.8}}
+      }
+    },
+    {
+      "id": "mine",
+      "name": "Mine",
+      "description": "Extracts valuable resources from the ground",
+      "category": "production",
+      "resource_requirements": {
+        "wood": 20,
+        "stone": 10,
+        "tools": 5
+      },
+      "personnel_requirements": {
+        "miner": 3
+      },
+      "capacity": 0,
+      "effects": {
+        "stone_production_rate": 2,
+        "metal_production_rate": 1.5,
+        "gem_production_rate": 0.5
+      },
+      "upgrade_path": ["deep_mine", "quarry"],
+      "area_type_bonuses": {
+        "mountains": {"effects": {"metal_production_rate": 2, "gem_production_rate": 1}},
+        "hills": {"effects": {"stone_production_rate": 2.5}}
+      }
+    },
+    {
+      "id": "fishery",
+      "name": "Fishery",
+      "description": "Harvests fish from nearby waters",
+      "category": "production",
+      "resource_requirements": {
+        "wood": 20,
+        "rope": 10
+      },
+      "personnel_requirements": {
+        "fisher": 2
+      },
+      "capacity": 0,
+      "effects": {
+        "fish_production_rate": 2.5,
+        "food_production_rate": 1.5
+      },
+      "upgrade_path": ["fishing_dock", "harbor"],
+      "area_type_bonuses": {
+        "coastal": {"effects": {"fish_production_rate": 3.5}},
+        "river": {"effects": {"fish_production_rate": 3.0}}
+      }
+    },
+    {
+      "id": "workshop",
+      "name": "Workshop",
+      "description": "Crafts tools and basic goods",
+      "category": "production",
+      "resource_requirements": {
+        "wood": 20,
+        "stone": 15,
+        "tools": 3
+      },
+      "personnel_requirements": {
+        "craftsman": 2
+      },
+      "capacity": 0,
+      "effects": {
+        "tool_production_rate": 2,
+        "wood_processing_efficiency": 1.5,
+        "crafting_efficiency": 1.3
+      },
+      "upgrade_path": ["crafting_hall", "guild_hall"],
+      "area_type_bonuses": {
+        "forest": {"effects": {"wood_processing_efficiency": 1.8}}
+      }
+    },
+    {
+      "id": "barracks",
+      "name": "Barracks",
+      "description": "Houses and trains guards",
+      "category": "defense",
+      "resource_requirements": {
+        "wood": 30,
+        "stone": 25,
+        "metal": 5
+      },
+      "personnel_requirements": {
+        "guard_captain": 1
+      },
+      "capacity": 10,
+      "effects": {
+        "defense_rating": 10,
+        "guard_training_rate": 1.5,
+        "max_guards": 10
+      },
+      "upgrade_path": ["garrison", "fortress"],
+      "area_type_bonuses": {}
+    },
+    {
+      "id": "school",
+      "name": "School",
+      "description": "Educates settlers and improves skills",
+      "category": "community",
+      "resource_requirements": {
+        "wood": 25,
+        "stone": 15,
+        "books": 5
+      },
+      "personnel_requirements": {
+        "teacher": 1
+      },
+      "capacity": 0,
+      "effects": {
+        "education": 10,
+        "skill_learning_rate": 1.5,
+        "research_rate": 1.2,
+        "morale": 5
+      },
+      "upgrade_path": ["academy", "university"],
+      "area_type_bonuses": {}
+    },
+    {
+      "id": "herbalist",
+      "name": "Herbalist's Hut",
+      "description": "Processes herbs into medicine",
+      "category": "health",
+      "resource_requirements": {
+        "wood": 15,
+        "herbs": 10
+      },
+      "personnel_requirements": {
+        "herbalist": 1
+      },
+      "capacity": 0,
+      "effects": {
+        "medicine_production_rate": 2,
+        "healing_rate": 1.5,
+        "herb_processing_efficiency": 1.5
+      },
+      "upgrade_path": ["apothecary", "hospital"],
+      "area_type_bonuses": {
+        "forest": {"effects": {"medicine_production_rate": 2.5, "herb_processing_efficiency": 2}}
+      }
+    }
+  ],
+  
+  "specializations": [
+    {
+      "id": "priest",
+      "name": "Priest",
+      "requirements": {
+        "education": 5
+      },
+      "traits": ["pious", "educated"]
+    },
+    {
+      "id": "blacksmith",
+      "name": "Blacksmith",
+      "requirements": {
+        "strength": 3,
+        "crafting": 5
+      },
+      "traits": ["strong", "skilled"]
+    },
+    {
+      "id": "farmer",
+      "name": "Farmer",
+      "requirements": {
+        "endurance": 3,
+        "nature": 2
+      },
+      "traits": ["hardworking", "patient"]
+    },
+    {
+      "id": "innkeeper",
+      "name": "Innkeeper",
+      "requirements": {
+        "charisma": 4,
+        "cooking": 3
+      },
+      "traits": ["friendly", "organized"]
+    },
+    {
+      "id": "guard",
+      "name": "Guard",
+      "requirements": {
+        "strength": 4,
+        "combat": 3
+      },
+      "traits": ["vigilant", "brave"]
+    },
+    {
+      "id": "merchant",
+      "name": "Merchant",
+      "requirements": {
+        "charisma": 4,
+        "math": 3
+      },
+      "traits": ["persuasive", "shrewd"]
+    },
+    {
+      "id": "miner",
+      "name": "Miner",
+      "requirements": {
+        "strength": 4,
+        "endurance": 5
+      },
+      "traits": ["tough", "determined"]
+    },
+    {
+      "id": "fisher",
+      "name": "Fisher",
+      "requirements": {
+        "agility": 3,
+        "survival": 3
+      },
+      "traits": ["patient", "observant"]
+    },
+    {
+      "id": "craftsman",
+      "name": "Craftsman",
+      "requirements": {
+        "dexterity": 4,
+        "crafting": 4
+      },
+      "traits": ["detail-oriented", "creative"]
+    },
+    {
+      "id": "guard_captain",
+      "name": "Guard Captain",
+      "requirements": {
+        "strength": 4,
+        "leadership": 4,
+        "combat": 5
+      },
+      "traits": ["commanding", "strategic"]
+    },
+    {
+      "id": "teacher",
+      "name": "Teacher",
+      "requirements": {
+        "intelligence": 5,
+        "education": 5
+      },
+      "traits": ["patient", "articulate"]
+    },
+    {
+      "id": "herbalist",
+      "name": "Herbalist",
+      "requirements": {
+        "intelligence": 3,
+        "nature": 4,
+        "medicine": 3
+      },
+      "traits": ["knowledgeable", "observant"]
+    }
+  ],
+
+  "upgrade_paths": {
+    "improved_house": {
+      "name": "Improved House",
+      "description": "Better housing with more comfort",
+      "resource_requirements": {
+        "wood": 15,
+        "stone": 10,
+        "glass": 2
+      },
+      "effects": {
+        "housing_capacity": 5,
+        "morale": 2
+      }
+    },
+    "stone_house": {
+      "name": "Stone House",
+      "description": "Sturdy stone house with excellent protection",
+      "resource_requirements": {
+        "stone": 30,
+        "wood": 10,
+        "glass": 4,
+        "metal": 5
+      },
+      "effects": {
+        "housing_capacity": 6,
+        "morale": 3,
+        "protection": 2
+      }
+    },
+    "cathedral": {
+      "name": "Cathedral",
+      "description": "Impressive religious building that serves as a community hub",
+      "resource_requirements": {
+        "stone": 100,
+        "wood": 50,
+        "glass": 20,
+        "gold": 30
+      },
+      "personnel_requirements": {
+        "priest": 3
+      },
+      "effects": {
+        "morale": 20,
+        "education": 10,
+        "healing_rate": 1.5,
+        "prestige": 15
+      }
+    }
+  }
+}

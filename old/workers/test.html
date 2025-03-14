@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapbox Hover Spread Markers</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mapbox-gl/2.14.1/mapbox-gl.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/mapbox-gl/2.14.1/mapbox-gl.css" rel="stylesheet" />
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        
+        .marker {
+            background-color: #3887be;
+            background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBkPSJNMjU2LDEyLjA0YzEwNC40ODgsMCwxODksODQuNTEyLDE4OSwxODlDNDQ1LDM0Ny40MCwzNDIuNzQsNDU3LjgxLDI1Niw0OTkuOTYgQzE2OC4zNiw0NTcuMjcsNjcsMzQ3LjQsNjcsMjAxLjA0QzY3LDk2LjU1MiwxNTEuNTEyLDEyLjA0LDI1NiwxMi4wNHogTTI1NiwxMjguODY3IGMtMzkuODEyLDAtNzIuMTMzLDMyLjMyMS03Mi4xMzMsNzIuMTMzczMyLjMyMSw3Mi4xMzMsNzIuMTMzLDcyLjEzM3M3Mi4xMzMtMzIuMzIxLDcyLjEzMy03Mi4xMzNTMjk1LjgxMiwxMjguODY3LDI1NiwxMjguODY3eiIgZmlsbD0iI2ZmZmZmZiIvPjwvc3ZnPgo=');
+            background-size: cover;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            transition: all 0.5s ease;
+            z-index: 1;
+        }
+        
+        .marker1 { background-color: #3887be; }
+        .marker2 { background-color: #e55e5e; }
+        .marker3 { background-color: #38be54; }
+        
+        .marker-cluster {
+            width: 45px;
+            height: 45px;
+            background-color: rgba(56, 135, 190, 0.8);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            border: 2px solid white;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            transition: all 0.5s ease;
+            cursor: pointer;
+            z-index: 10;
+        }
+        
+        .marker.selected {
+            transform: scale(1.2);
+            box-shadow: 0 0 10px rgba(255, 255, 0, 0.8);
+            z-index: 20;
+        }
+        
+        .popup {
+            max-width: 200px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    
+    <script>
+        // Mapbox access token
+        mapboxgl.accessToken = 'pk.eyJ1Ijoib2xpdmVyZ2Frc2F0IiwiYSI6ImNtODRuZjIwbjIybTQyaXNmeHp3NmdhNDYifQ.4yX-RhokHfgoGJYz-pU7-g';
+        
+        // Initial coordinates (central point)
+        const centerCoords = [-122.4194, 37.7749]; // San Francisco
+        
+        // Define marker data
+        const markerData = [
+            {
+                id: 1,
+                title: "Location 1",
+                description: "This is the first location",
+                initialCoords: [-122.4194, 37.7749],
+                spreadCoords: [-122.4194, 37.7749]
+            },
+            {
+                id: 2,
+                title: "Location 2",
+                description: "This is the second location",
+                initialCoords: [-122.4194, 37.7749],
+                spreadCoords: [-122.4294, 37.7849]
+            },
+            {
+                id: 3,
+                title: "Location 3",
+                description: "This is the third location",
+                initialCoords: [-122.4194, 37.7749],
+                spreadCoords: [-122.4094, 37.7649]
+            }
+        ];
+        
+        // Initialize map
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: centerCoords,
+            zoom: 13
+        });
+        
+        let areSpread = false;
+        let selectedMarker = null;
+        let clusterElement = null;
+        let markerElements = [];
+        let popups = [];
+        
+        map.on('load', function() {
+            // Create a cluster element
+            clusterElement = document.createElement('div');
+            clusterElement.className = 'marker-cluster';
+            clusterElement.innerText = markerData.length;
+            
+            // Add the cluster to the map
+            const cluster = new mapboxgl.Marker(clusterElement)
+                .setLngLat(centerCoords)
+                .addTo(map);
+                
+            // Create individual markers but don't add them to the map yet
+            markerElements = markerData.map((data, i) => {
+                const el = document.createElement('div');
+                el.className = `marker marker${data.id}`;
+                el.dataset.id = data.id;
+                
+                // Create popup but don't add it yet
+                const popup = new mapboxgl.Popup({
+                    offset: 25,
+                    closeButton: false,
+                    className: 'popup'
+                }).setHTML(`<h3>${data.title}</h3><p>${data.description}</p>`);
+                
+                popups.push(popup);
+                
+                const marker = new mapboxgl.Marker(el)
+                    .setLngLat(data.initialCoords)
+                    .setPopup(popup);
+                
+                // Add click event to each marker
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    
+                    // Toggle selected state
+                    if (selectedMarker === data.id) {
+                        el.classList.remove('selected');
+                        popup.remove();
+                        selectedMarker = null;
+                    } else {
+                        // Clear previous selection
+                        if (selectedMarker !== null) {
+                            const prevEl = document.querySelector(`.marker[data-id="${selectedMarker}"]`);
+                            if (prevEl) prevEl.classList.remove('selected');
+                            popups.forEach(p => p.remove());
+                        }
+                        
+                        el.classList.add('selected');
+                        popup.addTo(map);
+                        selectedMarker = data.id;
+                    }
+                });
+                
+                return marker;
+            });
+            
+            // Functions to handle spreading and clustering
+            function spreadMarkers() {
+                if (!areSpread) {
+                    // Hide cluster
+                    clusterElement.style.opacity = '0';
+                    clusterElement.style.pointerEvents = 'none';
+                    
+                    // Show and spread individual markers
+                    markerElements.forEach((marker, i) => {
+                        marker.setLngLat(markerData[i].spreadCoords).addTo(map);
+                    });
+                    
+                    areSpread = true;
+                }
+            }
+            
+            function clusterMarkers() {
+                if (areSpread && !selectedMarker) {
+                    // Hide individual markers
+                    markerElements.forEach(marker => {
+                        marker.remove();
+                    });
+                    
+                    // Show cluster
+                    clusterElement.style.opacity = '1';
+                    clusterElement.style.pointerEvents = 'auto';
+                    
+                    areSpread = false;
+                }
+            }
+            
+            // Add hover and click events to the cluster
+            clusterElement.addEventListener('mouseenter', spreadMarkers);
+            clusterElement.addEventListener('click', spreadMarkers);
+            
+            // Add click event to the map to close selection
+            map.on('click', () => {
+                if (selectedMarker !== null) {
+                    const el = document.querySelector(`.marker[data-id="${selectedMarker}"]`);
+                    if (el) el.classList.remove('selected');
+                    popups.forEach(p => p.remove());
+                    selectedMarker = null;
+                }
+                
+                // Only cluster when no marker is selected
+                if (!selectedMarker) {
+                    setTimeout(clusterMarkers, 100);
+                }
+            });
+            
+            // Keep markers spread when hovering over any marker
+            markerElements.forEach(marker => {
+                marker.getElement().addEventListener('mouseenter', () => {
+                    if (!areSpread) {
+                        spreadMarkers();
+                    }
+                });
+            });
+            
+            // Auto-cluster when mouse leaves the map area (only if no marker is selected)
+            document.getElementById('map').addEventListener('mouseleave', () => {
+                if (!selectedMarker) {
+                    clusterMarkers();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

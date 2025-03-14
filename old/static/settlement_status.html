@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settlement Status</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .settlement-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .resources, .buildings {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .resource-item, .building-item, .task-item {
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.05);
+        }
+        
+        .tasks {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .task-item {
+            background-color: #f0f8ff;
+            border-left: 3px solid #4a86e8;
+        }
+        
+        .task-difficulty {
+            margin-top: 5px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .difficulty-stars {
+            margin-left: 5px;
+            color: #f39c12;
+        }
+        .action-log {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            padding: 10px;
+            margin-top: 20px;
+        }
+        .log-entry {
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .log-entry .timestamp {
+            color: #999;
+            font-size: 0.8em;
+        }
+        .log-entry .action-type {
+            font-weight: bold;
+            color: #333;
+        }
+        .log-entry .description {
+            margin-top: 5px;
+        }
+        select {
+            padding: 5px;
+            border-radius: 3px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="settlement-header">
+            <div>
+                <h1 id="settlement-name">Loading...</h1>
+                <p id="settlement-description"></p>
+            </div>
+            <div>
+                <h3>Population: <span id="population"></span></h3>
+                <select id="settlement-selector" onchange="loadSettlement(this.value)">
+                    <option value="">Select a settlement</option>
+                </select>
+            </div>
+        </div>
+        
+        <h2>Resources</h2>
+        <div class="resources" id="resources-container"></div>
+        
+        <h2>Buildings</h2>
+        <div class="buildings" id="buildings-container"></div>
+        
+        <h2>Available Tasks</h2>
+        <div class="tasks" id="tasks-container"></div>
+        
+        <h2>Recent Activity</h2>
+        <div class="action-log" id="action-log-container"></div>
+    </div>
+
+    <script>
+        // API base URL
+        const API_BASE = window.location.origin;
+        
+        // Load settlements dropdown
+        async function loadSettlementsList() {
+            try {
+                console.log('Attempting to fetch settlements from:', `${API_BASE}/settlements/`);
+                const response = await fetch(`${API_BASE}/settlements/`);
+                console.log('Fetch response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    throw new Error(`Failed to fetch settlements: ${response.status} - ${errorText}`);
+                }
+                
+                const settlements = await response.json();
+                console.log('Settlements data:', settlements);
+                const selector = document.getElementById('settlement-selector');
+                
+                // Clear existing options except the first one
+                while (selector.options.length > 1) {
+                    selector.options.remove(1);
+                }
+                
+                // Add settlements to dropdown
+                settlements.forEach(settlement => {
+                    const option = document.createElement('option');
+                    option.value = settlement.id;
+                    option.textContent = settlement.name;
+                    selector.appendChild(option);
+                });
+                
+                // Load the first settlement if any exist
+                if (settlements.length > 0) {
+                    loadSettlement(settlements[0].id);
+                }
+            } catch (error) {
+                console.error('Error loading settlements:', error);
+            }
+        }
+        
+        // Load a specific settlement
+        async function loadSettlement(settlementId) {
+            if (!settlementId) return;
+            
+            try {
+                // Load settlement details
+                const response = await fetch(`${API_BASE}/settlements/${settlementId}`);
+                if (!response.ok) throw new Error('Failed to fetch settlement details');
+                
+                const settlement = await response.json();
+                
+                // Update UI with settlement details
+                document.getElementById('settlement-name').textContent = settlement.name;
+                document.getElementById('settlement-description').textContent = settlement.description || '';
+                document.getElementById('population').textContent = settlement.population;
+                
+                // Update resources
+                const resourcesContainer = document.getElementById('resources-container');
+                resourcesContainer.innerHTML = '';
+                
+                if (settlement.resources) {
+                    Object.entries(settlement.resources).forEach(([resource, amount]) => {
+                        const div = document.createElement('div');
+                        div.className = 'resource-item';
+                        div.innerHTML = `
+                            <strong>${resource.charAt(0).toUpperCase() + resource.slice(1)}</strong>
+                            <div>${amount}</div>
+                        `;
+                        resourcesContainer.appendChild(div);
+                    });
+                }
+                
+                // Update buildings
+                const buildingsContainer = document.getElementById('buildings-container');
+                buildingsContainer.innerHTML = '';
+                
+                if (settlement.buildings && Object.keys(settlement.buildings).length > 0) {
+                    Object.entries(settlement.buildings).forEach(([building, level]) => {
+                        const div = document.createElement('div');
+                        div.className = 'building-item';
+                        
+                        // Format building name (convert snake_case to Title Case)
+                        const formattedName = building
+                            .split('_')
+                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                            .join(' ');
+                            
+                        div.innerHTML = `
+                            <strong>${formattedName}</strong>
+                            <div>Level ${level}</div>
+                        `;
+                        buildingsContainer.appendChild(div);
+                    });
+                } else {
+                    buildingsContainer.innerHTML = '<p>No buildings constructed yet.</p>';
+                }
+                
+                // Load action logs
+                loadActionLogs(settlementId);
+                
+                // Load tasks
+                loadSettlementTasks(settlementId);
+                
+            } catch (error) {
+                console.error('Error loading settlement:', error);
+            }
+        }
+        
+        // Load tasks for a settlement
+        async function loadSettlementTasks(settlementId) {
+            try {
+                console.log('Attempting to fetch tasks from:', `${API_BASE}/settlements/${settlementId}/tasks`);
+                const response = await fetch(`${API_BASE}/settlements/${settlementId}/tasks`);
+                console.log('Fetch tasks response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    throw new Error(`Failed to fetch settlement tasks: ${response.status} - ${errorText}`);
+                }
+                
+                const tasks = await response.json();
+                console.log('Tasks data:', tasks);
+                
+                const tasksContainer = document.getElementById('tasks-container');
+                tasksContainer.innerHTML = '';
+                
+                if (tasks.length === 0) {
+                    tasksContainer.innerHTML = '<p>No tasks available yet.</p>';
+                    return;
+                }
+                
+                tasks.forEach(task => {
+                    const div = document.createElement('div');
+                    div.className = 'task-item';
+                    
+                    // Generate stars for difficulty
+                    const difficultyStars = '★'.repeat(task.difficulty) + '☆'.repeat(5 - task.difficulty);
+                    
+                    // Debug task data
+                    console.log('Task object:', task);
+                    console.log('task.resource_requirements type:', typeof task.resource_requirements);
+                    console.log('task.resource_rewards type:', typeof task.resource_rewards);
+                    
+                    // Format requirements and rewards
+                    let requirementsHtml = '<p>No requirements</p>';
+                    let taskRequirements = task.resource_requirements;
+                    
+                    // Handle JSON string if necessary
+                    if (typeof taskRequirements === 'string') {
+                        try {
+                            taskRequirements = JSON.parse(taskRequirements);
+                        } catch (e) {
+                            console.error('Error parsing resource requirements:', e);
+                        }
+                    }
+                    
+                    if (taskRequirements && Object.keys(taskRequirements).length > 0) {
+                        requirementsHtml = '<ul>';
+                        Object.entries(taskRequirements).forEach(([resource, amount]) => {
+                            requirementsHtml += `<li>${resource}: ${amount}</li>`;
+                        });
+                        requirementsHtml += '</ul>';
+                    }
+                    
+                    let rewardsHtml = '<p>No rewards</p>';
+                    let taskRewards = task.resource_rewards;
+                    
+                    // Handle JSON string if necessary
+                    if (typeof taskRewards === 'string') {
+                        try {
+                            taskRewards = JSON.parse(taskRewards);
+                        } catch (e) {
+                            console.error('Error parsing resource rewards:', e);
+                        }
+                    }
+                    
+                    if (taskRewards && Object.keys(taskRewards).length > 0) {
+                        rewardsHtml = '<ul>';
+                        Object.entries(taskRewards).forEach(([resource, amount]) => {
+                            rewardsHtml += `<li>${resource}: ${amount}</li>`;
+                        });
+                        rewardsHtml += '</ul>';
+                    }
+                    
+                    div.innerHTML = `
+                        <h3>${task.name}</h3>
+                        <div class="task-difficulty">
+                            Difficulty: <span class="difficulty-stars">${difficultyStars}</span>
+                        </div>
+                        <p>${task.description}</p>
+                        <div class="task-details">
+                            <div>
+                                <h4>Requirements:</h4>
+                                ${requirementsHtml}
+                            </div>
+                            <div>
+                                <h4>Rewards:</h4>
+                                ${rewardsHtml}
+                            </div>
+                        </div>
+                    `;
+                    
+                    tasksContainer.appendChild(div);
+                });
+                
+            } catch (error) {
+                console.error('Error loading settlement tasks:', error);
+            }
+        }
+        
+        // Load action logs for a settlement
+        async function loadActionLogs(settlementId, limit = 20) {
+            try {
+                const response = await fetch(`${API_BASE}/settlements/${settlementId}/logs?limit=${limit}`);
+                if (!response.ok) throw new Error('Failed to fetch action logs');
+                
+                const logs = await response.json();
+                
+                const logContainer = document.getElementById('action-log-container');
+                logContainer.innerHTML = '';
+                
+                if (logs.length === 0) {
+                    logContainer.innerHTML = '<p>No activity recorded yet.</p>';
+                    return;
+                }
+                
+                logs.forEach(log => {
+                    const div = document.createElement('div');
+                    div.className = 'log-entry';
+                    
+                    // Format timestamp
+                    const timestamp = new Date(log.timestamp);
+                    const formattedTime = timestamp.toLocaleString();
+                    
+                    div.innerHTML = `
+                        <div class="timestamp">${formattedTime}</div>
+                        <div class="action-type">${log.action_type}</div>
+                        <div class="description">${log.description}</div>
+                    `;
+                    
+                    logContainer.appendChild(div);
+                });
+                
+            } catch (error) {
+                console.error('Error loading action logs:', error);
+            }
+        }
+        
+        // Auto-refresh data every 5 seconds (more frequent for testing)
+        function setupAutoRefresh() {
+            setInterval(() => {
+                const selectedId = document.getElementById('settlement-selector').value;
+                if (selectedId) {
+                    loadSettlement(selectedId);
+                }
+            }, 5000);
+        }
+        
+        // Debug helper to show content of an object
+        function debugObject(obj) {
+            const seen = new WeakSet();
+            const stringified = JSON.stringify(obj, (key, value) => {
+                if (typeof value === 'object' && value !== null) {
+                    if (seen.has(value)) {
+                        return '[Circular]';
+                    }
+                    seen.add(value);
+                }
+                return value;
+            }, 2);
+            console.log(stringified);
+            return stringified;
+        }
+        
+        // Initialize on page load
+        window.onload = function() {
+            console.clear();
+            console.log('Page initialized');
+            loadSettlementsList();
+            setupAutoRefresh();
+        };
+    </script>
+</body>
+</html>

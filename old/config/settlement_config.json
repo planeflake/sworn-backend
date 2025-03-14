@@ -1,0 +1,936 @@
+{
+  "settlements": [
+    {
+      "name": "Riverdale",
+      "area_type": "forest",
+      "position": {"x": 50, "y": 170},
+      "missing_resources": ["metal", "salt"],
+      "threats": ["wolves", "flooding"],
+      "initial_resources": {
+        "population": 25,
+        "food": 45,
+        "wood": 60,
+        "berries": 30,
+        "herbs": 25,
+        "water": 100
+      },
+      "needs": {
+        "metal": {"urgency": "high", "max_price": 10},
+        "salt": {"urgency": "medium", "max_price": 7},
+        "tools": {"urgency": "high", "max_price": 13},
+        "medicine": {"urgency": "medium", "max_price": 20}
+      },
+      "businesses": {
+        "Carpenter": {
+          "level": 3,
+          "services": {
+            "cart_frame_repair": {
+              "durability_restored": 40,
+              "cost": 35,
+              "materials_required": {"wood": 8}
+            },
+            "expanded_storage": {
+              "capacity_bonus": 30,
+              "cost": 70,
+              "materials_required": {"wood": 25}
+            }
+          }
+        },
+        "Herbalist": {
+          "level": 3,
+          "services": {
+            "basic_healing": {
+              "health_restored": 30,
+              "cost": 15
+            },
+            "forest_remedies": {
+              "health_restored": 50,
+              "journey_endurance": 0.2,
+              "cost": 35,
+              "specialty": "Riverdale exclusive"
+            }
+          }
+        },
+        "Tavern": {
+          "level": 2,
+          "services": {
+            "local_information": {
+              "trade_bonus": 0.1,
+              "cost": 5
+            },
+            "hearty_meals": {
+              "health_restored": 15,
+              "journey_endurance": 0.15,
+              "cost": 10
+            }
+          }
+        }
+      },
+      "connections": [
+        {
+          "destination": "Woodland Haven",
+          "distance": 20,
+          "biome_composition": {
+            "forest": 0.9,
+            "hills": 0.1
+          },
+          "danger_level": 3,
+          "path_condition": "good"
+        },
+        {
+          "destination": "OldHaven",
+          "distance": 35,
+          "biome_composition": {
+            "forest": 0.6,
+            "plains": 0.3,
+            "coastal": 0.1
+          },
+          "danger_level": 5,
+          "path_condition": "moderate"
+        }
+      ]
+    },
+    {
+      "name": "Mountain Haven",
+      "area_type": "mountains",
+      "position": {"x": 290, "y": 80},
+      "missing_resources": ["fish", "wheat", "cloth"],
+      "threats": ["rockslides", "winter_storms"],
+      "initial_resources": {
+        "population": 18,
+        "food": 30,
+        "stone": 80,
+        "metal": 40,
+        "gems": 15,
+        "water": 70
+      },
+      "needs": {
+        "wood": {"urgency": "high", "max_price": 8},
+        "fish": {"urgency": "medium", "max_price": 6},
+        "cloth": {"urgency": "high", "max_price": 15},
+        "wheat": {"urgency": "medium", "max_price": 5}
+      },
+      "businesses": {
+        "Elite Blacksmith": {
+          "level": 4,
+          "services": {
+            "reinforced_axles": {
+              "capacity_bonus": 30,
+              "durability_bonus": 45,
+              "cost": 200,
+              "materials_required": {"metal": 10},
+              "specialty": "Mountain Haven exclusive"
+            },
+            "masterwork_repairs": {
+              "durability_restored": 100,
+              "quality_improved": true,
+              "cost": 250
+            }
+          }
+        },
+        "Gem Cutter": {
+          "level": 3,
+          "services": {
+            "gem_authentication": {
+              "trade_bonus": 0.3,
+              "cost": 50
+            },
+            "jewel_crafting": {
+              "cost": 150,
+              "specialty": "Mountain Haven exclusive"
+            }
+          }
+        },
+        "Mountain Guide": {
+          "level": 3,
+          "services": {
+            "safe_passage": {
+              "danger_reduction": 0.5,
+              "travel_speed_bonus": 0.2,
+              "cost": 75
+            }
+          }
+        }
+      },
+      "connections": [
+        {
+          "destination": "Mountain Forge",
+          "distance": 45,
+          "biome_composition": {
+            "mountains": 0.9,
+            "hills": 0.1
+          },
+          "danger_level": 7,
+          "path_condition": "difficult"
+        },
+        {
+          "destination": "Eastern Haven",
+          "distance": 60,
+          "biome_composition": {
+            "mountains": 0.7,
+            "hills": 0.2,
+            "forest": 0.1
+          },
+          "danger_level": 8,
+          "path_condition": "treacherous"
+        }
+      ]
+    },
+    {
+      "name": "PortHaven",
+      "area_type": "coastal",
+      "position": {"x": 120, "y": 30},
+      "missing_resources": ["stone", "metal"],
+      "threats": ["pirates", "storms"],
+      "initial_resources": {
+        "population": 40,
+        "food": 60,
+        "fish": 80,
+        "salt": 50,
+        "rope": 35,
+        "water": 100
+      },
+      "needs": {
+        "wood": {"urgency": "high", "max_price": 6},
+        "stone": {"urgency": "high", "max_price": 7},
+        "metal": {"urgency": "medium", "max_price": 12},
+        "gems": {"urgency": "low", "max_price": 50}
+      },
+      "businesses": {
+        "Shipyard": {
+          "level": 4,
+          "services": {
+            "ship_repairs": {
+              "durability_restored": 80,
+              "cost": 180
+            },
+            "advanced_waterproofing": {
+              "weather_protection": true,
+              "durability_bonus": 30,
+              "cost": 120,
+              "specialty": "PortHaven exclusive"
+            }
+          }
+        },
+        "Harbor Master": {
+          "level": 3,
+          "services": {
+            "sea_charts": {
+              "trade_bonus": 0.2,
+              "cost": 85
+            },
+            "ship_cargo_space": {
+              "capacity_bonus": 100,
+              "cost": 200
+            }
+          }
+        },
+        "Fish Market": {
+          "level": 4,
+          "services": {
+            "preserved_fish": {
+              "journey_endurance": 0.4,
+              "cost": 35
+            }
+          }
+        }
+      },
+      "connections": [
+        {
+          "destination": "Coastal Watch",
+          "distance": 50,
+          "biome_composition": {
+            "coastal": 0.9,
+            "hills": 0.1
+          },
+          "danger_level": 6,
+          "path_condition": "moderate"
+        },
+        {
+          "destination": "OldHaven",
+          "distance": 40,
+          "biome_composition": {
+            "coastal": 1.0
+          },
+          "danger_level": 4,
+          "path_condition": "good",
+          "sea_route": true
+        }
+      ]
+    },
+    {
+      "name": "OldHaven",
+      "area_type": "coastal",
+      "position": {"x": 65, "y": 100},
+      "missing_resources": ["crabs", "metal", "tools"],
+      "threats": ["bandits", "wolves"],
+      "initial_resources": {
+        "population": 15,
+        "food": 25,
+        "fish": 35,
+        "wood": 20,
+        "water": 80
+      },
+      "needs": {
+        "metal": {"urgency": "high", "max_price": 10},
+        "tools": {"urgency": "high", "max_price": 14},
+        "medicine": {"urgency": "medium", "max_price": 19},
+        "seeds": {"urgency": "medium", "max_price": 7}
+      },
+      "businesses": {
+        "Fisher": {
+          "level": 2,
+          "services": {
+            "fishing_guides": {
+              "trade_bonus": 0.1,
+              "cost": 20
+            }
+          }
+        },
+        "Carpenter": {
+          "level": 1,
+          "services": {
+            "basic_repairs": {
+              "durability_restored": 20,
+              "cost": 30
+            }
+          }
+        },
+        "Town Guard": {
+          "level": 1,
+          "services": {
+            "hire_guard": {
+              "protection": 1,
+              "cost_per_day": 6
+            }
+          }
+        }
+      },
+      "connections": [
+        {
+          "destination": "Riverdale",
+          "distance": 35,
+          "biome_composition": {
+            "forest": 0.6,
+            "plains": 0.3,
+            "coastal": 0.1
+          },
+          "danger_level": 5,
+          "path_condition": "moderate"
+        },
+        {
+          "destination": "PortHaven",
+          "distance": 40,
+          "biome_composition": {
+            "coastal": 1.0
+          },
+          "danger_level": 4,
+          "path_condition": "good",
+          "sea_route": true
+        },
+        {
+          "destination": "Woodland Haven",
+          "distance": 30,
+          "biome_composition": {
+            "coastal": 0.3,
+            "forest": 0.7
+          },
+          "danger_level": 4,
+          "path_condition": "moderate"
+        }
+      ]
+    },
+    {
+      "name": "Woodland Haven",
+      "area_type": "forest",
+      "position": {"x": 100, "y": 150},
+      "missing_resources": [],
+      "threats": ["wolves"],
+      "initial_resources": {
+        "population": 10,
+        "food": 30,
+        "wood": 45,
+        "berries": 25,
+        "herbs": 20,
+        "water": 60
+      },
+      "needs": {
+        "metal": {"urgency": "high", "max_price": 12},
+        "salt": {"urgency": "medium", "max_price": 7},
+        "tools": {"urgency": "medium", "max_price": 15}
+      },
+      "businesses": {
+        "Carpenter": {
+          "level": 2,
+          "services": {
+            "cart_frame_repair": {
+              "durability_restored": 30,
+              "cost": 40,
+              "materials_required": {"wood": 10}
+            },
+            "weather_cover": {
+              "capacity_bonus": 0,
+              "durability_bonus": 15,
+              "weather_protection": true,
+              "cost": 80,
+              "materials_required": {"wood": 10}
+            }
+          }
+        },
+        "Herbalist": {
+          "level": 2,
+          "services": {
+            "basic_healing": {
+              "health_restored": 25,
+              "cost": 15
+            },
+            "forest_remedies": {
+              "health_restored": 40,
+              "journey_endurance": 0.1,
+              "cost": 30
+            }
+          }
+        },
+        "Hunter": {
+          "level": 3,
+          "services": {
+            "animal_tracking": {
+              "danger_reduction": 0.2,
+              "cost": 25
+            },
+            "leather_goods": {
+              "weather_protection": true,
+              "cost": 45
+            }
+          }
+        }
+      },
+      "connections": [
+        {
+          "destination": "Riverdale",
+          "distance": 20,
+          "biome_composition": {
+            "forest": 0.9,
+            "hills": 0.1
+          },
+          "danger_level": 3,
+          "path_condition": "good"
+        },
+        {
+          "destination": "OldHaven",
+          "distance": 30,
+          "biome_composition": {
+            "coastal": 0.3,
+            "forest": 0.7
+          },
+          "danger_level": 4,
+          "path_condition": "moderate"
+        },
+        {
+          "destination": "Prairie Outpost",
+          "distance": 25,
+          "biome_composition": {
+            "forest": 0.6,
+            "plains": 0.4
+          },
+          "danger_level": 2,
+          "path_condition": "good"
+        },
+        {
+          "destination": "Coastal Watch",
+          "distance": 30,
+          "biome_composition": {
+            "forest": 0.4,
+            "hills": 0.3,
+            "coastal": 0.3
+          },
+          "danger_level": 3,
+          "path_condition": "moderate"
+        }
+      ]
+    },
+    {
+      "name": "Mountain Forge",
+      "area_type": "mountains",
+      "position": {"x": 220, "y": 120},
+      "missing_resources": ["berries"],
+      "threats": [],
+      "initial_resources": {
+        "population": 8,
+        "food": 20,
+        "stone": 55,
+        "metal": 40,
+        "tools": 30,
+        "gems": 10,
+        "water": 40
+      },
+      "needs": {
+        "wood": {"urgency": "medium", "max_price": 6},
+        "fish": {"urgency": "high", "max_price": 5},
+        "leather": {"urgency": "medium", "max_price": 11}
+      },
+      "businesses": {
+        "Master Blacksmith": {
+          "level": 3,
+          "services": {
+            "reinforced_axles": {
+              "capacity_bonus": 25,
+              "durability_bonus": 40,
+              "cost": 130,
+              "materials_required": {"metal": 8},
+              "specialty": "Mountain-grade reinforcement"
+            },
+            "mountain_wheels": {
+              "capacity_bonus": 15,
+              "durability_bonus": 20,
+              "mountain_travel_bonus": 0.3,
+              "cost": 200,
+              "materials_required": {"metal": 15},
+              "specialty": "Mountain Forge exclusive"
+            }
+          }
+        },
+        "Stone Mason": {
+          "level": 3,
+          "services": {
+            "stone_ballast": {
+              "stability_bonus": 0.3,
+              "mountain_travel_bonus": 0.1,
+              "cost": 90,
+              "materials_required": {"stone": 15}
+            }
+          }
+        },
+        "Healer": {
+          "level": 2,
+          "services": {
+            "basic_healing": {
+              "health_restored": 25,
+              "cost": 25
+            },
+            "altitude_sickness_remedy": {
+              "mountain_travel_bonus": 0.2,
+              "health_restored": 15,
+              "cost": 40
+            }
+          }
+        }
+      },
+      "connections": [
+        {
+          "destination": "Coastal Watch",
+          "distance": 35,
+          "biome_composition": {
+            "coastal": 0.4,
+            "hills": 0.3,
+            "mountains": 0.3
+          },
+          "danger_level": 5,
+          "path_condition": "poor"
+        },
+        {
+          "destination": "Prairie Outpost",
+          "distance": 40,
+          "biome_composition": {
+            "mountains": 0.5,
+            "hills": 0.3,
+            "plains": 0.2
+          },
+          "danger_level": 6,
+          "path_condition": "difficult"
+        },
+        {
+          "destination": "Eastern Haven",
+          "distance": 60,
+          "biome_composition": {
+            "mountains": 0.6,
+            "hills": 0.3,
+            "forest": 0.1
+          },
+          "danger_level": 8,
+          "path_condition": "treacherous"
+        },
+        {
+          "destination": "Mountain Haven",
+          "distance": 45,
+          "biome_composition": {
+            "mountains": 0.9,
+            "hills": 0.1
+          },
+          "danger_level": 7,
+          "path_condition": "difficult"
+        }
+      ]
+    },
+    {
+      "name": "Prairie Outpost",
+      "area_type": "plains",
+      "position": {"x": 170, "y": 190},
+      "missing_resources": [],
+      "threats": ["bandits"],
+      "initial_resources": {
+        "population": 12,
+        "food": 25,
+        "wheat": 40,
+        "corn": 35,
+        "leather": 20,
+        "water": 30
+      },
+      "needs": {
+        "wood": {"urgency": "high", "max_price": 6},
+        "stone": {"urgency": "high", "max_price": 8},
+        "fish": {"urgency": "medium", "max_price": 5},
+        "metal": {"urgency": "medium", "max_price": 12}
+      },
+      "businesses": {
+        "Wainwright": {
+          "level": 3,
+          "services": {
+            "expanded_wagon": {
+              "capacity_bonus": 40,
+              "durability_bonus": 10,
+              "cost": 150,
+              "materials_required": {"wood": 30},
+              "specialty": "Prairie Outpost exclusive"
+            }
+          }
+        },
+        "Stable Master": {
+          "level": 4,
+          "services": {
+            "animal_feed_storage": {
+              "capacity_bonus": 10,
+              "travel_speed_bonus": 0.2,
+              "cost": 90,
+              "materials_required": {"wheat": 20}
+            },
+            "premium_animal_care": {
+              "travel_speed_bonus": 0.25,
+              "durability_bonus": 10,
+              "cost": 50
+            }
+          }
+        },
+        "Wheat Farmer": {
+          "level": 3,
+          "services": {
+            "journey_rations": {
+              "journey_endurance": 0.15,
+              "cost": 25
+            }
+          }
+        }
+      },
+      "connections": [
+        {
+          "destination": "Woodland Haven",
+          "distance": 25,
+          "biome_composition": {
+            "forest": 0.6,
+            "plains": 0.4
+          },
+          "danger_level": 2,
+          "path_condition": "good"
+        },
+        {
+          "destination": "Mountain Forge",
+          "distance": 40,
+          "biome_composition": {
+            "mountains": 0.5,
+            "hills": 0.3,
+            "plains": 0.2
+          },
+          "danger_level": 6,
+          "path_condition": "difficult"
+        },
+        {
+          "destination": "River Crossing",
+          "distance": 30,
+          "biome_composition": {
+            "plains": 0.8,
+            "swamp": 0.2
+          },
+          "danger_level": 4,
+          "path_condition": "moderate"
+        }
+      ]
+    },
+    {
+      "name": "Coastal Watch",
+      "area_type": "coastal",
+      "position": {"x": 150, "y": 80},
+      "missing_resources": [],
+      "threats": ["storms"],
+      "initial_resources": {
+        "population": 15,
+        "food": 40,
+        "wood": 20,
+        "fish": 50,
+        "salt": 35,
+        "rope": 25,
+        "water": 90
+      },
+      "needs": {
+        "metal": {"urgency": "high", "max_price": 11},
+        "herbs": {"urgency": "medium", "max_price": 10},
+        "gems": {"urgency": "low", "max_price": 45}
+      },
+      "businesses": {
+        "Shipwright": {
+          "level": 3,
+          "services": {
+            "waterproof_cover": {
+              "capacity_bonus": 0,
+              "durability_bonus": 20,
+              "weather_protection": true,
+              "cost": 70,
+              "materials_required": {"cloth": 6},
+              "specialty": "Waterproof coating"
+            }
+          }
+        },
+        "Fish Monger": {
+          "level": 3,
+          "services": {
+            "fish_storage": {
+              "capacity_bonus": 30,
+              "perishable_protection": true,
+              "cost": 100,
+              "materials_required": {"salt": 10},
+              "specialty": "Coastal Watch exclusive"
+            }
+          }
+        },
+        "Harbor Master": {
+          "level": 2,
+          "services": {
+            "hire_marine": {
+              "protection": 2,
+              "cost_per_day": 12,
+              "specialty": "Water route protection"
+            }
+          }
+        }
+      },
+      "connections": [
+        {
+          "destination": "Woodland Haven",
+          "distance": 30,
+          "biome_composition": {
+            "forest": 0.4,
+            "hills": 0.3,
+            "coastal": 0.3
+          },
+          "danger_level": 3,
+          "path_condition": "moderate"
+        },
+        {
+          "destination": "Mountain Forge",
+          "distance": 35,
+          "biome_composition": {
+            "coastal": 0.4,
+            "hills": 0.3,
+            "mountains": 0.3
+          },
+          "danger_level": 5,
+          "path_condition": "poor"
+        },
+        {
+          "destination": "PortHaven",
+          "distance": 50,
+          "biome_composition": {
+            "coastal": 0.9,
+            "hills": 0.1
+          },
+          "danger_level": 6,
+          "path_condition": "moderate"
+        }
+      ]
+    },
+    {
+      "name": "Eastern Haven",
+      "area_type": "forest",
+      "position": {"x": 270, "y": 170},
+      "missing_resources": ["fish", "salt"],
+      "threats": ["bandits"],
+      "initial_resources": {
+        "population": 30,
+        "food": 50,
+        "wood": 40,
+        "silk": 25,
+        "spices": 30,
+        "tea": 35,
+        "water": 70
+      },
+      "needs": {
+        "fish": {"urgency": "high", "max_price": 5},
+        "salt": {"urgency": "high", "max_price": 7},
+        "metal": {"urgency": "medium", "max_price": 11},
+        "gems": {"urgency": "low", "max_price": 42}
+      },
+      "businesses": {
+        "Silk Merchant": {
+          "level": 3,
+          "services": {
+            "silk_reinforced_cover": {
+              "capacity_bonus": 0,
+              "durability_bonus": 15,
+              "weather_protection": true,
+              "cost": 85,
+              "materials_required": {"silk": 3},
+              "specialty": "Silk-reinforced"
+            }
+          }
+        },
+        "Master Carpenter": {
+          "level": 3,
+          "services": {
+            "secret_compartments": {
+              "capacity_bonus": 15,
+              "smuggling_ability": true,
+              "cost": 220,
+              "materials_required": {"wood": 20}
+            }
+          }
+        },
+        "Spice Merchant": {
+          "level": 4,
+          "services": {
+            "spice_preservation_box": {
+              "capacity_bonus": 10,
+              "preservation_bonus": 0.5,
+              "cost": 160,
+              "materials_required": {"spices": 10},
+              "specialty": "Eastern Haven exclusive"
+            }
+          }
+        },
+        "Alchemist": {
+          "level": 3,
+          "services": {
+            "exotic_remedies": {
+              "health_restored": 80,
+              "journey_endurance": 0.2,
+              "cost": 100
+            }
+          }
+        }
+      },
+      "connections": [
+        {
+          "destination": "Mountain Forge",
+          "distance": 60,
+          "biome_composition": {
+            "mountains": 0.6,
+            "hills": 0.3,
+            "forest": 0.1
+          },
+          "danger_level": 8,
+          "path_condition": "treacherous"
+        },
+        {
+          "destination": "River Crossing",
+          "distance": 35,
+          "biome_composition": {
+            "plains": 0.5,
+            "hills": 0.3,
+            "forest": 0.2
+          },
+          "danger_level": 3,
+          "path_condition": "good"
+        },
+        {
+          "destination": "Mountain Haven",
+          "distance": 60,
+          "biome_composition": {
+            "mountains": 0.7,
+            "hills": 0.2,
+            "forest": 0.1
+          },
+          "danger_level": 8,
+          "path_condition": "treacherous"
+        }
+      ]
+    },
+    {
+      "name": "River Crossing",
+      "area_type": "plains",
+      "position": {"x": 220, "y": 220},
+      "missing_resources": ["metal", "stone"],
+      "threats": ["flooding", "bandits"],
+      "initial_resources": {
+        "population": 5,
+        "food": 15,
+        "wood": 10,
+        "wheat": 20,
+        "corn": 15,
+        "water": 100
+      },
+      "needs": {
+        "metal": {"urgency": "high", "max_price": 10},
+        "stone": {"urgency": "high", "max_price": 7},
+        "tools": {"urgency": "high", "max_price": 15},
+        "rope": {"urgency": "medium", "max_price": 9}
+      },
+      "businesses": {
+        "Ferryman": {
+          "level": 2,
+          "services": {
+            "river_crossing": {
+              "cost": 5
+            },
+            "water_route_knowledge": {
+              "travel_speed_bonus": 0.15,
+              "cost": 20
+            }
+          }
+        },
+        "Trading Post": {
+          "level": 1,
+          "services": {
+            "market_information": {
+              "trade_bonus": 0.1,
+              "cost": 15
+            },
+            "basic_supplies": {
+              "journey_endurance": 0.1,
+              "cost": 10
+            }
+          }
+        },
+        "Farmer": {
+          "level": 2,
+          "services": {
+            "travel_rations": {
+              "journey_endurance": 0.2,
+              "cost": 20
+            }
+          }
+        }
+      },
+      "connections": [
+        {
+          "destination": "Prairie Outpost",
+          "distance": 30,
+          "biome_composition": {
+            "plains": 0.8,
+            "swamp": 0.2
+          },
+          "danger_level": 4,
+          "path_condition": "moderate"
+        },
+        {
+          "destination": "Eastern Haven",
+          "distance": 35,
+          "biome_composition": {
+            "plains": 0.5,
+            "hills": 0.3,
+            "forest": 0.2
+          },
+          "danger_level": 3,
+          "path_condition": "good"
+        }
+      ]
+    }
+  ]
+}

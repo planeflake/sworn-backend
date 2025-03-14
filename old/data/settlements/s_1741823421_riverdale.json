@@ -1,0 +1,19 @@
+{
+  "id": "s_1741823421_riverdale",
+  "name": "Riverdale",
+  "area_type": "forest",
+  "buildings": [],
+  "cycle_period": "Day",
+  "trader_visiting": false,
+  "missing_resources": [],
+  "threats": [],
+  "resources": {
+    "food": 20,
+    "wood": 570,
+    "stone": 0,
+    "water": 10,
+    "population": 5,
+    "berries": 380
+  },
+  "events": []
+}
