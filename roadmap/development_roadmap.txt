@@ -1,0 +1,220 @@
+# SWORN GAME DEVELOPMENT ROADMAP
+
+## AI SYSTEMS
+
+### MCTS Improvements (Short-term)
+1. Add real resource price data from settlements instead of random generation
+2. Implement journey risk assessment based on area danger levels
+3. Add trader personality and risk-aversion parameters to decision-making
+4. Optimize simulation performance with pruning techniques
+5. Add parallel MCTS for faster decision-making
+6. Create visualization tools for decision trees in admin dashboard
+
+### MCTS Integration (Mid-term)
+1. Use MCTS for multi-step planning (not just next move)
+2. Integrate trader knowledge of previous journeys
+3. Implement MCTS for settlement NPCs and political decisions
+4. Add shared knowledge between traders from same faction
+5. Technical approach: Create a generic MCTS abstraction layer for different agent types
+
+### Neural Network Integration (Long-term)
+1. Re-implement value function approximation with neural networks
+2. Train NN on MCTS simulation results for faster evaluation
+3. Create experience buffer for asynchronous training
+4. Use transfer learning to share knowledge between similar agent types
+5. Technical approach: Use PyTorch or TensorFlow through FastAPI background tasks
+
+## WORLD SIMULATION
+
+### Settlement Expansion (Short-term)
+1. Implement settlement growth mechanics based on prosperity and trade
+2. Add building construction and upgrades
+3. Create specialization systems for settlements (mining, farming, etc.)
+4. Implement seasonal changes affecting resource production
+5. Technical approach: Add building_status table with scheduled construction tasks
+
+### Area Development (Mid-term)
+1. Implement dynamic area changes based on traffic and settlement influence
+2. Create discoverable resources in areas
+3. Add player camps and outposts in areas
+4. Implement area control mechanics (bandits, factions, etc.)
+5. Technical approach: Create area_control and area_development tables
+
+### World Events (Long-term)
+1. Create cascading event system affecting multiple settlements
+2. Implement weather patterns and natural disasters
+3. Add conflict simulation between settlements/factions
+4. Create dynamic quest generation based on world state
+5. Technical approach: Event dispatcher system with observer pattern
+
+## PLAYER PROGRESSION
+
+### Skill Trees (Short-term)
+1. Design basic skill progression system for characters
+2. Implement skill-based action success chances
+3. Create crafting skills and recipes
+4. Add leadership skills for settlement management
+5. Technical approach: Create character_skills table and skill_definition tables
+
+### Reputation System (Mid-term)
+1. Implement faction reputation system
+2. Add reputation-based access to special areas and resources
+3. Create reputation quests and challenges
+4. Implement NPC relationship simulation
+5. Technical approach: Add reputation_ledger table tracking all changes
+
+### Character Development (Long-term)
+1. Add character traits evolving based on actions
+2. Implement mentor/apprentice relationships
+3. Create family/lineage system for long-term play
+4. Add permadeath with legacy systems
+5. Technical approach: Character state machine and trait evolution system
+
+## ECONOMIC SYSTEMS
+
+### Market Simulation (Short-term)
+1. Implement supply and demand mechanics affecting prices
+2. Add resource transformation (raw materials to finished goods)
+3. Create market fluctuations based on scarcity and events
+4. Implement price forecasting for traders
+5. Technical approach: Create market_prices table with history and forecasting
+
+### Trade Networks (Mid-term)
+1. Implement trade route development based on traffic
+2. Add caravan mechanics for group traders
+3. Create piracy/banditry affecting trade routes
+4. Implement trade monopolies and competition
+5. Technical approach: Create trade_network graph database or graph-like SQL structure
+
+### Banking System (Long-term)
+1. Add loans and interest systems
+2. Implement investment in businesses and expeditions
+3. Create currency exchange between different regions
+4. Add economic crises and opportunities
+5. Technical approach: Transaction ledger system with scheduled interest calculations
+
+## COMBAT & ENCOUNTER SYSTEMS
+
+### Basic Combat (Short-term)
+1. Implement turn-based combat system for encounters
+2. Add equipment and weapons affecting combat
+3. Create basic AI for combat decisions
+4. Implement group combat mechanics
+5. Technical approach: Create combat service with state machine
+
+### Area Encounters (Mid-term)
+1. Create complex branching encounters
+2. Add environmental effects on encounters
+3. Implement stealth and avoidance mechanics
+4. Create encounter difficulty scaling
+5. Technical approach: Encounter definition language with triggers and conditions
+
+### Warfare System (Long-term)
+1. Implement settlement sieges and defenses
+2. Add unit recruitment and army building
+3. Create tactical battle resolution
+4. Implement campaign planning for AI factions
+5. Technical approach: Layered simulation system (strategic, operational, tactical)
+
+## TECHNICAL INFRASTRUCTURE
+
+### Performance Improvements (Short-term)
+1. Add caching for frequently accessed data
+2. Optimize database queries with proper indexing
+3. Implement bulk operations for simulation steps
+4. Add database connection pooling
+5. Technical approach: Redis caching, PostgreSQL optimization
+
+### Scaling Architecture (Mid-term)
+1. Implement sharded worlds for horizontal scaling
+2. Create read replicas for analytics and reporting
+3. Add message queue for better task distribution
+4. Implement API rate limiting and optimization
+5. Technical approach: Add Kafka/RabbitMQ for task queue
+
+### DevOps Improvements (Long-term)
+1. Implement CI/CD pipeline for automated testing and deployment
+2. Add comprehensive monitoring and alerting
+3. Create development/staging/production environments
+4. Implement blue/green deployments
+5. Technical approach: Docker containers with Kubernetes orchestration
+
+## FRONTEND IMPROVEMENTS
+
+### Game State Visualization (Short-term)
+1. Create interactive world map with settlement and trader status
+2. Add detailed settlement view with buildings and population
+3. Implement character sheet with skills and inventory
+4. Create trader journey visualization
+5. Technical approach: Svelte components with reactive stores
+
+### Trading Interface (Mid-term)
+1. Create marketplace UI with buy/sell options
+2. Add price history charts and forecasting
+3. Implement inventory management interface
+4. Create contract and trade agreement UI
+5. Technical approach: Reusable Svelte components with TypeScript interfaces
+
+### Administrative Tools (Long-term)
+1. Create world editor for game masters
+2. Add analytics dashboard for game economy
+3. Implement player activity monitoring
+4. Create scenario creation tools
+5. Technical approach: Admin-specific routes with permission system
+
+## IMPLEMENTATION PRIORITIES
+
+### Phase 1 (Next 1-2 months)
+1. Complete MCTS optimization and integration with real data
+2. Implement basic settlement expansion mechanics
+3. Add simple skill system for characters
+4. Create basic market simulation with supply/demand
+5. Improve frontend visualization of game state
+
+### Phase 2 (3-6 months)
+1. Implement area development and control systems
+2. Add reputation system with faction relationships
+3. Create trade networks and caravan mechanics
+4. Implement combat system for encounters
+5. Develop trading interface improvements
+
+### Phase 3 (6-12 months)
+1. Integrate neural networks with MCTS
+2. Implement world events and cascading effects
+3. Add character development and traits
+4. Create banking and investment systems
+5. Implement warfare systems between settlements
+
+## TECHNICAL IMPLEMENTATION GUIDES
+
+### How to Implement Settlement Growth
+1. Create new tables: `building_types`, `settlement_buildings`, `construction_projects`
+2. Add daily prosperity calculation based on trade volume and resources
+3. Implement building prerequisites and resource requirements
+4. Create Celery task for construction progress and completion
+5. Add API endpoints for viewing/initiating construction
+6. Update frontend to display buildings and construction
+
+### How to Implement Skill System
+1. Create tables: `skill_definitions`, `character_skills`, `skill_requirements`
+2. Define skill trees with prerequisites and progression
+3. Implement skill check mechanics for actions
+4. Create skill gain through usage and training
+5. Add API endpoints for character skill management
+6. Update frontend with skill tree visualization
+
+### How to Improve MCTS with Neural Networks
+1. Create experience buffer storage in PostgreSQL or Redis
+2. Implement async training task running at intervals
+3. Create PyTorch model with trader state representation
+4. Add model prediction API endpoint with FastAPI
+5. Integrate value predictions into MCTS search
+6. Implement model versioning and evaluation
+
+### How to Implement Economic Simulation
+1. Create market transaction ledger table
+2. Add supply/demand modifiers for each resource
+3. Implement price fluctuation based on transaction volume
+4. Create scheduled task for market updates
+5. Add price history tracking and forecasting
+6. Create frontend visualization for market trends

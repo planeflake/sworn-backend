@@ -25,12 +25,54 @@ class Connection(BaseModel):
     path_condition: str
     biome_composition: Dict[str, float]
 
+class ResourceSiteStageResponse(BaseModel):
+    stage_id: UUID4
+    stage_code: str
+    stage_name: str
+    stage_description: Optional[str] = None
+    building_requirement: Optional[str] = None
+    required_resources: Optional[Dict[str, int]] = None
+    production_rates: Dict[str, int] = {}
+    settlement_effects: Optional[Dict[str, Any]] = None
+    development_cost: Optional[int] = None
+    next_stage: Optional[str] = None
+    
+    class Config:
+        orm_mode = True
+
+class ResourceSiteCreate(BaseModel):
+    site_type_id: UUID4
+    settlement_id: UUID4
+    current_stage: str = "undiscovered"
+    production_multiplier: Optional[float] = 1.0
+
+class ResourceSiteBase(BaseModel):
+    site_type_id: UUID4
+    current_stage: str
+    depletion_level: float = 0.0
+    development_level: float = 0.0
+    production_multiplier: float = 1.0
+
+class ResourceSiteResponse(ResourceSiteBase, TimeStampModel):
+    site_id: UUID4
+    settlement_id: UUID4
+    site_name: str  # Joined from ResourceSiteTypes
+    site_category: str  # Joined from ResourceSiteTypes
+    primary_resource: Optional[str] = None  # Resource name, joined from ResourceTypes
+    description: Optional[str] = None
+    associated_building_id: Optional[UUID4] = None
+    stage_details: Optional[ResourceSiteStageResponse] = None  # Current stage details
+    
+    class Config:
+        orm_mode = True
+
 class SettlementResponse(SettlementBase, TimeStampModel):
     settlement_id: UUID4
     world_id: UUID4
     owner_character_id: Optional[UUID4] = None
     threats: List[str] = []
     connections: List[Connection] = {}
+    resource_sites: List[ResourceSiteResponse] = []
 
     class Config:
         has_attributes = True

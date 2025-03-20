@@ -5,7 +5,8 @@ from typing import List, Optional
 from uuid import UUID
 
 from database.connection import get_db
-from models.core import Players, Characters, CharacterInventory, CharacterSkills
+from models.core import Players, Characters, CharacterInventory
+from models.roles import CharacterSkill
 from app.schemas.player import PlayerCreate, PlayerResponse, CharacterCreate, CharacterResponse, InventoryResponse
 
 router = APIRouter(prefix="/players", tags=["players"])

@@ -26,6 +26,8 @@ class WorldBase(BaseModel):
     is_premium: bool = False
     max_players: int = 100
     world_seed: Optional[str] = None
+    initial_season: Optional[str] = "spring"
+    days_per_season: Optional[int] = 30
 
 class WorldCreate(WorldBase):
     pass
@@ -38,6 +40,10 @@ class WorldResponse(BaseModel):
     is_premium: Optional[bool] = None
     max_players: Optional[int] = None
     current_game_day: Optional[int] = None
+    current_season: Optional[str] = None
+    day_of_season: Optional[int] = None
+    days_per_season: Optional[int] = None
+    current_year: Optional[int] = None
     world_seed: Optional[str] = None
     creation_date: Optional[datetime] = None
     last_updated: Optional[datetime] = None
@@ -68,11 +74,20 @@ class WorldEventResponse(WorldEventBase, TimeStampModel):
     class Config:
         from_attributes = True
 
+class SeasonInfo(BaseModel):
+    name: str
+    display_name: str
+    description: str
+    color_hex: str
+    resource_modifiers: Dict[str, float]
+    travel_modifier: float
+
 class WorldStateResponse(BaseModel):
     world: WorldResponse
     current_day: int
     player_count: int
     settlement_count: int
+    current_season: Optional[SeasonInfo] = None
     #events: List[WorldEventResponse]
 
     class Config:

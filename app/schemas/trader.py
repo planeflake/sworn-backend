@@ -10,7 +10,7 @@ class TraderBase(BaseModel):
     npc_id: UUID4
     npc_name: str
     home_settlement_id: UUID4
-    current_settlement_id: UUID4
+    current_settlement_id: Optional[UUID4] = None  # Ensure this is optional
     cart_capacity: int = Field(..., gt=0)
     cart_health: int = Field(..., ge=0, le=100)
     gold: int = Field(..., ge=0)
@@ -31,8 +31,6 @@ class TraderResponse(TraderBase, TimeStampModel):
     biome_preferences: Dict[str, float] = {}
     cart_upgrades: List[str] = []
     schedule: Dict[str, Any] = {}
-    # Note: life_goal would typically not be exposed directly until
-    # the player reaches sufficient reputation with the trader
     npc_name: str  # This would be joined from npcs
 
     class Config:

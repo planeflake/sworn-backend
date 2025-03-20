@@ -1,0 +1,810 @@
+# TECHNICAL IMPLEMENTATION DETAILS
+
+## MCTS OPTIMIZATION
+
+### Parallel MCTS Implementation
+```python
+from concurrent.futures import ProcessPoolExecutor
+import numpy as np
+
+def run_simulation(state_data, num_simulations=100):
+    # Reconstruct state from serialized data
+    state = TraderState.from_dict(state_data)
+    
+    # Run simulations
+    mcts = MCTS(exploration_weight=1.0)
+    best_action = mcts.search(
+        root_state=state,
+        get_legal_actions_fn=lambda s: s.get_legal_actions(),
+        apply_action_fn=lambda s, a: s.apply_action(a),
+        is_terminal_fn=lambda s: s.is_terminal(),
+        get_reward_fn=lambda s: s.get_reward(),
+        num_simulations=num_simulations
+    )
+    
+    return {
+        "action": best_action.to_dict() if best_action else None,
+        "stats": mcts.decision_stats
+    }
+
+def parallel_mcts_search(state, num_workers=4, simulations_per_worker=25):
+    # Serialize state for workers
+    state_data = state.to_dict()
+    
+    total_simulations = 0
+    action_stats = {}
+    
+    # Run simulations in parallel
+    with ProcessPoolExecutor(max_workers=num_workers) as executor:
+        futures = [executor.submit(run_simulation, state_data, simulations_per_worker) 
+                  for _ in range(num_workers)]
+        
+        for future in futures:
+            result = future.result()
+            if not result["action"]:
+                continue
+                
+            total_simulations += simulations_per_worker
+            
+            # Aggregate statistics
+            action_key = str(result["action"]["destination_id"])
+            if action_key not in action_stats:
+                action_stats[action_key] = {
+                    "visits": 0,
+                    "value": 0,
+                    "action": result["action"]
+                }
+            
+            action_stats[action_key]["visits"] += result["stats"].get("actions_evaluated", 0)
+            action_stats[action_key]["value"] += result["stats"].get("value", 0)
+    
+    # Find best action
+    if not action_stats:
+        return None
+        
+    best_action_key = max(action_stats.keys(), 
+                          key=lambda k: action_stats[k]["visits"])
+    
+    return TraderAction.from_dict(action_stats[best_action_key]["action"])
+```
+
+### Neural Network Value Function
+
+```python
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class TraderValueNetwork(nn.Module):
+    def __init__(self, input_size=128, hidden_size=64):
+        super(TraderValueNetwork, self).__init__()
+        self.fc1 = nn.Linear(input_size, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, hidden_size)
+        self.fc3 = nn.Linear(hidden_size, 1)
+        
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        return torch.tanh(self.fc3(x))
+        
+def state_to_features(state):
+    """Convert TraderState to feature vector"""
+    features = []
+    
+    # Trader features
+    features.append(state.current_load / state.max_capacity)
+    features.append(state.trader.get('gold', 0) / 1000.0)  # Normalize
+    features.append(state.trader.get('cart_health', 100) / 100.0)
+    
+    # One-hot encoding of current location
+    location_vec = [0] * 50  # Assume max 50 settlements
+    if state.current_settlement_id:
+        loc_idx = hash(state.current_settlement_id) % 50
+        location_vec[loc_idx] = 1
+    features.extend(location_vec)
+    
+    # Resource inventory features
+    inventory = state.trader.get('inventory', {})
+    resource_vec = [0] * 20  # Assume max 20 resource types
+    for i, (res_id, res_data) in enumerate(inventory.items()):
+        if i >= 20:
+            break
+        resource_vec[i] = res_data.get('quantity', 0) / 100.0  # Normalize
+    features.extend(resource_vec)
+    
+    # Additional features as needed
+    
+    return torch.tensor(features, dtype=torch.float32)
+```
+
+## SETTLEMENT EXPANSION SYSTEM
+
+### Database Schema
+
+```sql
+-- Building types table
+CREATE TABLE building_types (
+    building_type_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    category VARCHAR(50) NOT NULL,
+    size INTEGER NOT NULL DEFAULT 1,
+    base_cost JSONB NOT NULL, -- {resource_type_id: amount, ...}
+    upkeep_cost JSONB, -- {resource_type_id: amount, ...}
+    construction_time INTEGER NOT NULL, -- In days
+    prerequisites JSONB, -- {building_type_id: level, ...}
+    effects JSONB, -- {prosperity: 5, defense: 10, ...}
+    max_level INTEGER NOT NULL DEFAULT 1,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Settlement buildings table
+CREATE TABLE settlement_buildings (
+    settlement_building_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    settlement_id UUID NOT NULL REFERENCES settlements(settlement_id) ON DELETE CASCADE,
+    building_type_id UUID NOT NULL REFERENCES building_types(building_type_id),
+    level INTEGER NOT NULL DEFAULT 1,
+    health INTEGER NOT NULL DEFAULT 100,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    staff_count INTEGER NOT NULL DEFAULT 0,
+    additional_effects JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Construction projects table
+CREATE TABLE construction_projects (
+    project_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    settlement_id UUID NOT NULL REFERENCES settlements(settlement_id) ON DELETE CASCADE,
+    building_type_id UUID NOT NULL REFERENCES building_types(building_type_id),
+    target_level INTEGER NOT NULL DEFAULT 1,
+    progress INTEGER NOT NULL DEFAULT 0, -- 0-100
+    resources_allocated JSONB NOT NULL, -- {resource_type_id: amount, ...}
+    estimated_completion_day INTEGER, -- Game day
+    is_paused BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Celery Task for Settlement Growth
+
+```python
+@app.task
+def process_settlement_growth(settlement_id):
+    """Process settlement growth, building construction, and resource production"""
+    db = SessionLocal()
+    try:
+        settlement = db.query(Settlements).filter(Settlements.settlement_id == settlement_id).first()
+        if not settlement:
+            logger.error(f"Settlement {settlement_id} not found")
+            return False
+        
+        # Process construction projects
+        projects = db.query(ConstructionProjects).filter(
+            ConstructionProjects.settlement_id == settlement_id,
+            ConstructionProjects.is_paused == False
+        ).all()
+        
+        for project in projects:
+            # Check if resources are available
+            if not check_resources_available(db, settlement_id, project.resources_allocated):
+                logger.info(f"Project {project.project_id} paused due to resource shortage")
+                project.is_paused = True
+                continue
+            
+            # Update progress
+            building_type = db.query(BuildingTypes).filter(
+                BuildingTypes.building_type_id == project.building_type_id
+            ).first()
+            
+            if not building_type:
+                logger.error(f"Building type {project.building_type_id} not found")
+                continue
+            
+            # Daily progress based on workers, resources, etc.
+            daily_progress = calculate_daily_progress(settlement, project, building_type)
+            project.progress += daily_progress
+            
+            logger.info(f"Project {project.project_id} progress: {project.progress}%")
+            
+            # Check if complete
+            if project.progress >= 100:
+                complete_construction_project(db, settlement_id, project)
+        
+        # Update settlement prosperity based on buildings
+        update_settlement_prosperity(db, settlement)
+        
+        # Calculate resource production/consumption
+        process_resource_production(db, settlement)
+        
+        db.commit()
+        return True
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Error processing settlement growth: {e}")
+        return False
+    finally:
+        db.close()
+```
+
+## SKILL SYSTEM IMPLEMENTATION
+
+### Database Schema
+
+```sql
+-- Skill definitions table
+CREATE TABLE skill_definitions (
+    skill_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    category VARCHAR(50) NOT NULL,
+    max_level INTEGER NOT NULL DEFAULT 5,
+    xp_requirements JSONB NOT NULL, -- {1: 100, 2: 300, ...}
+    prerequisites JSONB, -- {skill_id: min_level, ...}
+    effects JSONB, -- {strength: 5, crafting_speed: 0.1, ...}
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Character skills table
+CREATE TABLE character_skills (
+    character_skill_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    character_id UUID NOT NULL REFERENCES characters(character_id) ON DELETE CASCADE,
+    skill_id UUID NOT NULL REFERENCES skill_definitions(skill_id),
+    current_level INTEGER NOT NULL DEFAULT 0,
+    current_xp INTEGER NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    last_used TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(character_id, skill_id)
+);
+
+-- Skill usage table (for tracking usage and XP gain)
+CREATE TABLE skill_usage (
+    usage_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    character_id UUID NOT NULL REFERENCES characters(character_id) ON DELETE CASCADE,
+    skill_id UUID NOT NULL REFERENCES skill_definitions(skill_id),
+    action_type VARCHAR(50) NOT NULL,
+    xp_gained INTEGER NOT NULL,
+    success BOOLEAN NOT NULL,
+    context JSONB, -- Additional data about the usage
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Skill Check Function
+
+```python
+def perform_skill_check(character_id, skill_id, difficulty, context=None):
+    """
+    Perform a skill check for a character.
+    
+    Args:
+        character_id: UUID of the character
+        skill_id: UUID of the skill being tested
+        difficulty: Integer difficulty rating (0-100)
+        context: Optional context data about the check
+        
+    Returns:
+        Dictionary with success/failure and details
+    """
+    db = SessionLocal()
+    try:
+        # Get character skill level
+        character_skill = db.query(CharacterSkills).filter(
+            CharacterSkills.character_id == character_id,
+            CharacterSkills.skill_id == skill_id
+        ).first()
+        
+        skill_level = 0
+        if character_skill:
+            skill_level = character_skill.current_level
+        
+        # Get skill definition for additional modifiers
+        skill = db.query(SkillDefinitions).filter(
+            SkillDefinitions.skill_id == skill_id
+        ).first()
+        
+        if not skill:
+            return {"success": False, "error": "Skill not found"}
+        
+        # Calculate success chance
+        base_chance = 30 + (skill_level * 10)  # 30% base + 10% per level
+        
+        # Apply character attribute modifiers
+        character = db.query(Characters).filter(
+            Characters.character_id == character_id
+        ).first()
+        
+        if not character:
+            return {"success": False, "error": "Character not found"}
+        
+        # Example: Apply attribute bonuses based on skill category
+        if skill.category == "strength":
+            attribute_bonus = character.strength * 2
+        elif skill.category == "intelligence":
+            attribute_bonus = character.intelligence * 2
+        elif skill.category == "dexterity":
+            attribute_bonus = character.dexterity * 2
+        else:
+            attribute_bonus = 0
+        
+        success_chance = min(95, base_chance + attribute_bonus)
+        
+        # Apply difficulty modifier
+        success_chance -= difficulty
+        success_chance = max(5, min(95, success_chance))  # Always 5-95% chance
+        
+        # Roll for success
+        roll = random.randint(1, 100)
+        success = roll <= success_chance
+        
+        # Calculate XP gain (more for difficult checks, especially failures)
+        xp_multiplier = 1.0 if success else 0.5
+        xp_gained = int(difficulty * 0.1 * xp_multiplier)
+        
+        # Record skill usage
+        usage = SkillUsage(
+            character_id=character_id,
+            skill_id=skill_id,
+            action_type=context.get("action_type", "unknown") if context else "unknown",
+            xp_gained=xp_gained,
+            success=success,
+            context=context
+        )
+        db.add(usage)
+        
+        # Update character skill XP
+        if not character_skill:
+            character_skill = CharacterSkills(
+                character_id=character_id,
+                skill_id=skill_id,
+                current_level=0,
+                current_xp=0
+            )
+            db.add(character_skill)
+        
+        character_skill.current_xp += xp_gained
+        character_skill.last_used = datetime.now()
+        
+        # Check for level up
+        xp_requirements = skill.xp_requirements
+        next_level = character_skill.current_level + 1
+        
+        if (str(next_level) in xp_requirements and 
+            character_skill.current_xp >= xp_requirements[str(next_level)]):
+            character_skill.current_level = next_level
+            level_up = True
+        else:
+            level_up = False
+        
+        db.commit()
+        
+        return {
+            "success": success,
+            "roll": roll,
+            "target": success_chance,
+            "difficulty": difficulty,
+            "skill_level": character_skill.current_level,
+            "xp_gained": xp_gained,
+            "level_up": level_up,
+            "context": context
+        }
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Error performing skill check: {e}")
+        return {"success": False, "error": str(e)}
+    finally:
+        db.close()
+```
+
+## ECONOMIC SIMULATION SYSTEM
+
+### Market Price Calculation
+
+```python
+def calculate_resource_prices(settlement_id):
+    """Calculate market prices for all resources in a settlement"""
+    db = SessionLocal()
+    try:
+        # Get settlement
+        settlement = db.query(Settlements).filter(
+            Settlements.settlement_id == settlement_id
+        ).first()
+        
+        if not settlement:
+            return {"status": "error", "message": "Settlement not found"}
+        
+        # Get base resource types
+        resource_types = db.query(ResourceTypes).all()
+        
+        # Get settlement storage
+        storages = db.query(SettlementStorage).filter(
+            SettlementStorage.settlement_id == settlement_id
+        ).all()
+        
+        # Create storage map for quick lookup
+        storage_map = {s.resource_type_id: s.quantity for s in storages}
+        
+        # Get recent market transactions for price trending
+        recent_transactions = db.query(MarketTransactions).filter(
+            MarketTransactions.settlement_id == settlement_id,
+            MarketTransactions.created_at >= datetime.now() - timedelta(days=7)
+        ).all()
+        
+        # Aggregate transactions by resource
+        transaction_volume = {}
+        for tx in recent_transactions:
+            if tx.resource_type_id not in transaction_volume:
+                transaction_volume[tx.resource_type_id] = {
+                    "buy_volume": 0,
+                    "sell_volume": 0,
+                    "total_buy_value": 0,
+                    "total_sell_value": 0
+                }
+            
+            if tx.transaction_type == "buy":
+                transaction_volume[tx.resource_type_id]["buy_volume"] += tx.quantity
+                transaction_volume[tx.resource_type_id]["total_buy_value"] += tx.total_price
+            else:
+                transaction_volume[tx.resource_type_id]["sell_volume"] += tx.quantity
+                transaction_volume[tx.resource_type_id]["total_sell_value"] += tx.total_price
+        
+        # Calculate prices for each resource
+        market_prices = {}
+        
+        for resource in resource_types:
+            resource_id = resource.resource_type_id
+            base_price = resource.base_value
+            
+            # Default modifiers
+            supply_modifier = 1.0
+            demand_modifier = 1.0
+            settlement_modifier = 1.0
+            
+            # Supply modifier based on storage amount
+            quantity = storage_map.get(resource_id, 0)
+            expected_quantity = settlement.size * resource.expected_per_population
+            
+            if expected_quantity > 0:
+                supply_ratio = quantity / expected_quantity
+                if supply_ratio > 1.5:
+                    # Oversupply reduces prices
+                    supply_modifier = 0.8 - min(0.3, (supply_ratio - 1.5) * 0.1)
+                elif supply_ratio < 0.5:
+                    # Scarcity increases prices
+                    supply_modifier = 1.2 + min(0.8, (0.5 - supply_ratio) * 0.5)
+            
+            # Demand modifier based on recent transactions
+            if resource_id in transaction_volume:
+                tx_data = transaction_volume[resource_id]
+                buy_volume = tx_data["buy_volume"]
+                sell_volume = tx_data["sell_volume"]
+                
+                # If buying > selling, demand is high
+                if buy_volume > sell_volume * 1.2:
+                    demand_ratio = buy_volume / (sell_volume if sell_volume > 0 else 1)
+                    demand_modifier = 1.0 + min(0.5, (demand_ratio - 1) * 0.1)
+                
+                # If selling > buying, demand is low
+                elif sell_volume > buy_volume * 1.2:
+                    demand_ratio = sell_volume / (buy_volume if buy_volume > 0 else 1)
+                    demand_modifier = 1.0 - min(0.3, (demand_ratio - 1) * 0.05)
+            
+            # Settlement modifier based on specialization and biome
+            if settlement.specializations and resource_id in settlement.specializations:
+                # Settlements produce their specialties cheaper
+                settlement_modifier = 0.8
+            
+            if settlement.biome:
+                # Biome-specific price adjustments
+                biome_resources = {
+                    "forest": ["wood", "herbs"],
+                    "mountains": ["stone", "ore"],
+                    "plains": ["food", "livestock"],
+                    "desert": ["spices", "gems"],
+                    "coast": ["fish", "salt"]
+                }
+                
+                # Resources common to biome are cheaper
+                if settlement.biome in biome_resources and resource.name.lower() in biome_resources[settlement.biome]:
+                    settlement_modifier *= 0.9
+                
+                # Resources uncommon to biome are more expensive
+                opposite_biomes = {
+                    "forest": "desert",
+                    "desert": "forest",
+                    "mountains": "plains",
+                    "plains": "mountains",
+                    "coast": "mountains"
+                }
+                
+                if (settlement.biome in opposite_biomes and 
+                    opposite_biomes[settlement.biome] in biome_resources and
+                    resource.name.lower() in biome_resources[opposite_biomes[settlement.biome]]):
+                    settlement_modifier *= 1.2
+            
+            # Calculate final price
+            final_modifier = supply_modifier * demand_modifier * settlement_modifier
+            buy_price = int(base_price * final_modifier * 1.1)  # 10% markup for buying
+            sell_price = int(base_price * final_modifier * 0.9)  # 10% discount for selling
+            
+            # Store prices
+            market_prices[str(resource_id)] = {
+                "resource_id": str(resource_id),
+                "resource_name": resource.resource_name,
+                "base_price": base_price,
+                "buy_price": buy_price,
+                "sell_price": sell_price,
+                "supply": quantity,
+                "trend": "rising" if final_modifier > 1.1 else "falling" if final_modifier < 0.9 else "stable",
+                "modifiers": {
+                    "supply": supply_modifier,
+                    "demand": demand_modifier,
+                    "settlement": settlement_modifier,
+                    "final": final_modifier
+                }
+            }
+        
+        # Update market prices in database
+        settlement.market_prices = market_prices
+        db.commit()
+        
+        return {
+            "status": "success",
+            "settlement_id": str(settlement_id),
+            "settlement_name": settlement.settlement_name,
+            "prices": market_prices,
+            "updated_at": datetime.now().isoformat()
+        }
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Error calculating resource prices: {e}")
+        return {"status": "error", "message": str(e)}
+    finally:
+        db.close()
+```
+
+## FRONTEND VISUALIZATION
+
+### Svelte Map Component
+
+```javascript
+<!-- WorldMap.svelte -->
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { spring } from 'svelte/motion';
+  import type { Settlement, Trader, Area } from '../types';
+  
+  export let settlements: Settlement[] = [];
+  export let traders: Trader[] = [];
+  export let areas: Area[] = [];
+  export let width: number = 800;
+  export let height: number = 600;
+  
+  // Reactive coordinates with spring animation
+  const scale = spring(1);
+  const offsetX = spring(0);
+  const offsetY = spring(0);
+  
+  let svg;
+  let dragging = false;
+  let lastX, lastY;
+  
+  // Map settlement size to circle radius
+  function getSettlementRadius(settlement: Settlement): number {
+    const baseSize = 5;
+    const sizeMultiplier = 1.5;
+    return baseSize + (settlement.size * sizeMultiplier);
+  }
+  
+  // Get settlement color based on prosperity
+  function getSettlementColor(settlement: Settlement): string {
+    const prosperity = settlement.prosperity || 50;
+    if (prosperity > 80) return '#4CAF50'; // Prosperous - green
+    if (prosperity > 60) return '#8BC34A'; // Growing - light green
+    if (prosperity > 40) return '#FFC107'; // Stable - yellow
+    if (prosperity > 20) return '#FF9800'; // Struggling - orange
+    return '#F44336'; // Failing - red
+  }
+  
+  // Get trader path as SVG path string
+  function getTraderPath(trader: Trader): string {
+    if (!trader.journey_path || !trader.path_position) return '';
+    
+    // Convert area IDs to coordinates
+    const path = JSON.parse(trader.journey_path);
+    const areaCoords = path.map(areaId => {
+      const area = areas.find(a => a.area_id === areaId);
+      return area ? [area.x, area.y] : null;
+    }).filter(Boolean);
+    
+    if (areaCoords.length < 2) return '';
+    
+    // Create SVG path
+    return 'M ' + areaCoords.map(coord => `${coord[0]} ${coord[1]}`).join(' L ');
+  }
+  
+  // Pan and zoom handlers
+  function handleWheel(event) {
+    event.preventDefault();
+    const delta = event.deltaY > 0 ? -0.1 : 0.1;
+    const newScale = Math.max(0.5, Math.min(3, $scale + delta));
+    scale.set(newScale);
+  }
+  
+  function handleMouseDown(event) {
+    dragging = true;
+    lastX = event.clientX;
+    lastY = event.clientY;
+    svg.style.cursor = 'grabbing';
+  }
+  
+  function handleMouseMove(event) {
+    if (!dragging) return;
+    
+    const dx = (event.clientX - lastX) / $scale;
+    const dy = (event.clientY - lastY) / $scale;
+    
+    offsetX.set($offsetX + dx);
+    offsetY.set($offsetY + dy);
+    
+    lastX = event.clientX;
+    lastY = event.clientY;
+  }
+  
+  function handleMouseUp() {
+    dragging = false;
+    svg.style.cursor = 'grab';
+  }
+  
+  onMount(() => {
+    svg.addEventListener('wheel', handleWheel);
+    
+    return () => {
+      svg.removeEventListener('wheel', handleWheel);
+    };
+  });
+</script>
+
+<div class="map-container">
+  <svg 
+    bind:this={svg}
+    width={width}
+    height={height}
+    on:mousedown={handleMouseDown}
+    on:mousemove={handleMouseMove}
+    on:mouseup={handleMouseUp}
+    on:mouseleave={handleMouseUp}
+    style="cursor: grab;"
+  >
+    <g transform={`translate(${$offsetX}, ${$offsetY}) scale(${$scale})`}>
+      <!-- Draw areas -->
+      {#each areas as area}
+        <path 
+          d={area.path} 
+          fill={area.biome_color || '#f0f0f0'} 
+          stroke="#cccccc" 
+          stroke-width="0.5" 
+          opacity="0.6"
+        />
+        <text x={area.x} y={area.y} font-size="6" text-anchor="middle" fill="#666">
+          {area.area_name}
+        </text>
+      {/each}
+      
+      <!-- Draw connections between settlements -->
+      {#each settlements as settlement}
+        {#if settlement.connections}
+          {#each settlement.connections as connection}
+            {@const targetSettlement = settlements.find(s => s.settlement_id === connection.destination_id)}
+            {#if targetSettlement}
+              <line 
+                x1={settlement.x} 
+                y1={settlement.y} 
+                x2={targetSettlement.x} 
+                y2={targetSettlement.y} 
+                stroke="#aaaaaa" 
+                stroke-width="1" 
+                stroke-dasharray="2,2"
+              />
+            {/if}
+          {/each}
+        {/if}
+      {/each}
+      
+      <!-- Draw trader journeys -->
+      {#each traders as trader}
+        {#if trader.current_area_id}
+          <path 
+            d={getTraderPath(trader)} 
+            stroke="#3f51b5" 
+            stroke-width="2" 
+            fill="none" 
+            stroke-dasharray="4,2"
+          />
+          {@const pathPosition = trader.path_position || 0}
+          {@const journeyPath = JSON.parse(trader.journey_path || '[]')}
+          {@const currentArea = areas.find(a => a.area_id === trader.current_area_id)}
+          {#if currentArea}
+            <circle 
+              cx={currentArea.x} 
+              cy={currentArea.y} 
+              r="4" 
+              fill="#3f51b5" 
+            />
+            <text 
+              x={currentArea.x + 6} 
+              y={currentArea.y - 6} 
+              font-size="8" 
+              fill="#3f51b5"
+            >
+              {trader.npc_name} ({trader.journey_progress}%)
+            </text>
+          {/if}
+        {/if}
+      {/each}
+      
+      <!-- Draw settlements -->
+      {#each settlements as settlement}
+        <circle 
+          cx={settlement.x} 
+          cy={settlement.y} 
+          r={getSettlementRadius(settlement)} 
+          fill={getSettlementColor(settlement)}
+          stroke="#333333"
+          stroke-width="0.5"
+        />
+        <text 
+          x={settlement.x} 
+          y={settlement.y - getSettlementRadius(settlement) - 5} 
+          font-size="8" 
+          text-anchor="middle" 
+          fill="#333333"
+        >
+          {settlement.settlement_name}
+        </text>
+      {/each}
+    </g>
+  </svg>
+  
+  <div class="map-controls">
+    <button on:click={() => scale.set($scale + 0.1)}>+</button>
+    <button on:click={() => scale.set($scale - 0.1)}>-</button>
+    <button on:click={() => {
+      scale.set(1);
+      offsetX.set(0);
+      offsetY.set(0);
+    }}>Reset</button>
+  </div>
+</div>
+
+<style>
+  .map-container {
+    position: relative;
+    border: 1px solid #ccc;
+    overflow: hidden;
+    background-color: #f5f5f5;
+  }
+  
+  .map-controls {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    display: flex;
+    gap: 5px;
+  }
+  
+  .map-controls button {
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+    background-color: white;
+    border: 1px solid #ccc;
+    cursor: pointer;
+  }
+</style>
+```

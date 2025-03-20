@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from database.connection import get_db
-from app.routers import world, player, settlement, trader
+from app.routers import world, player, settlement, trader, area
 
 from typing import Dict, List
 
@@ -48,6 +48,7 @@ app.include_router(world.router)
 app.include_router(player.router)
 app.include_router(settlement.router)
 app.include_router(trader.router)
+app.include_router(area.router)
 
 
 @app.get("/")

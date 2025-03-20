@@ -109,6 +109,7 @@ vswornb/
 
 #claude-code
 claude-code/
+claude/
 # mypy
 .mypy_cache/
 
