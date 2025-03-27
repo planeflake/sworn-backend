@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Foreig
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 from sqlalchemy.ext.declarative import declarative_base
-from models.core import Base
+from app.models.core import Base
 
 class Role(Base):
     """Defines a character role like trader, blacksmith, etc."""

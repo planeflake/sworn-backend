@@ -5,7 +5,7 @@ from typing import List, Optional, Dict, Any
 from uuid import UUID
 
 from database.connection import get_db
-from models.core import Traders, TraderInventory, ResourceTypes
+from app.models.core import Traders, TraderInventory, ResourceTypes
 from app.schemas.trader import TraderResponse, TraderInventoryResponse, TradeRequest
 from app.game_state.manager import GameStateManager
 
@@ -114,3 +114,28 @@ async def get_trader_mcts_decision(
         )
     
     return mcts_decision
+
+@router.post("/{trader_id}/complete-task/{task_id}")
+async def complete_trader_task(
+    trader_id: UUID,
+    task_id: UUID,
+    character_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """
+    Complete a task for a trader and unblock their movement.
+    
+    Args:
+        trader_id: The trader ID
+        task_id: The task ID to complete
+        character_id: The character completing the task
+    """
+    from app.game_state.services.trader_service import TraderService
+    
+    trader_service = TraderService(db)
+    result = await trader_service.complete_trader_task(str(task_id), str(character_id))
+    
+    if result["status"] == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
+    
+    return result

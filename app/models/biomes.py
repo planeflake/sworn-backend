@@ -1,8 +1,8 @@
 # models/biomes.py
-from sqlalchemy import Column, Integer, String, Float, Text, JSON, JSONB
+from sqlalchemy import Column, Integer, String, Float, Text, JSON
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.sql import func
-from ..database.connection import Base
-from sqlalchemy.dialects.postgresql import UUID
+from database.connection import Base
 import uuid
 
 class Biomes(Base):

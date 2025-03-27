@@ -1,4 +1,5 @@
-from models.animals import Animal
+# Fix import path
+from app.models.animals import Animal
 
 """
 Areas

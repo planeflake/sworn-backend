@@ -1,9 +1,9 @@
 # app/game_state/manager.py
 from sqlalchemy.orm import Session
 from sqlalchemy import String, cast, text
-from models.core import Worlds, Settlements, Characters, Traders, TravelRoutes, Areas
+from app.models.core import Worlds, Settlements, Characters, Traders, TravelRoutes, Areas
 from app.game_state.mcts import MCTS
-from app.game_state.trader_state import TraderState, TraderAction
+from app.ai.mcts.trader_state import TraderState, TraderAction
 import logging
 import random as rand
 import json
@@ -24,7 +24,7 @@ class GameStateManager:
         # Get season information if available
         current_season_info = None
         if hasattr(world, 'current_season') and world.current_season:
-            from models.seasons import Seasons
+            from app.models.seasons import Seasons
             season = self.db.query(Seasons).filter(Seasons.name == world.current_season).first()
             if season:
                 current_season_info = {

@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, Text, Table, MetaData, select, insert, update, delete
 from sqlalchemy.orm import Session
-from database import get_db
+from database.connection import get_db
 from pydantic import BaseModel
 from typing import List, Optional
 import logging as logger
@@ -206,6 +206,28 @@ class AnimalManager:
         """
         animals = self.get_animals_at_location(location_id)
         return [animal for animal in animals if animal.ecological_role == 'prey']
+
+    def get_prey_by_area(self, location_id: str, predator_prey_list: List[str]) -> List[Wildlife]:
+        """
+        Get all valid prey for a predator at a specific location.
+
+        Args:
+            location_id (str): The location ID.
+            predator_prey_list (List[str]): List of species or prey types the predator can hunt.
+
+        Returns:
+            List[Wildlife]: List of prey animals at the location that match the predator's prey preferences.
+        """
+        # Get all animals at the location
+        animals = self.get_animals_at_location(location_id)
+        
+        # Filter animals that are prey and match the predator's prey list
+        valid_prey = [
+            animal for animal in animals
+            if animal.ecological_role == 'prey' and animal.type in predator_prey_list
+        ]
+        
+        return valid_prey
 
     def delete_animal(self, animal_id: str) -> bool:
         """

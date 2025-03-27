@@ -1,7 +1,7 @@
 from typing import List, Dict, Optional, Any, Type, Union
 from sqlalchemy.orm import Session
 from database.connection import get_db
-from models.equipment import Equipment  # Assuming you have an Equipment model
+from app.models.equipment import Equipment  # Assuming you have an Equipment model
 import logging
 import uuid
 import json

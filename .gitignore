@@ -124,6 +124,9 @@ claude/
 # Claude Code temporary files
 claude-code/
 
+#old
+old/
+
 # Logs
 logs/
 

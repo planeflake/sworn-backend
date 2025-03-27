@@ -1,72 +1,61 @@
 import logging
 import json
 from typing import List, Dict, Optional, Any
+import random
 
 logger = logging.getLogger(__name__)
 
 class Building:
     """
-    Template class for game entities.
+    Building entity representing structures in the game world.
     
-    Entities represent game objects with state and behavior. They are the core
-    objects that make up the game world (e.g., traders, settlements, animals).
-    
-    Each entity should have:
+    Buildings have:
     1. A unique identifier
-    2. State properties relevant to its type
-    3. Methods for its behaviors
+    2. Properties relevant to the building type
+    3. Methods for building behaviors
     4. Serialization/deserialization methods for persistence
     5. State tracking to know when it needs to be saved
     """
     
-    def __init__(self, entity_id: str):
+    def __init__(self, building_id: str):
         """
-        Initialize an entity with a unique ID.
+        Initialize a building with a unique ID.
         
         Args:
-            entity_id (str): Unique identifier for this entity
+            building_id (str): Unique identifier for this building
         """
-        self.entity_id = entity_id
+        self.building_id = building_id
+        self.properties = {}  # Dictionary to store all properties
+        self._dirty = False
         
-        # Basic information
-        self.name = None
-        self.description = None
-        
-        # Location
-        self.location_id = None
-        
-        # Other state properties specific to this entity type
-        self.properties = {}
-        
-        # Related entities
-        self.inhabitants = {}
-        
-        # Internal state tracking
-        self._dirty = False  # Has this entity been modified since last save?
+        # Initialize properties dictionary
+        self.set_property("name", None)
+        self.set_property("description", None)
+        self.set_property("location_id", None)
+        self.set_property("inhabitants", {})
+        self.set_property("relations", {})
     
     def set_basic_info(self, name: str, description: Optional[str] = None):
         """
-        Set basic information about the entity.
+        Set basic information about the building.
         
         Args:
-            name (str): The entity's name
-            description (str, optional): A brief description of the entity
+            name (str): The building's name
+            description (str, optional): A brief description of the building
         """
-        self.name = name
-        self.description = description or f"A {self.__class__.__name__.lower()} named {name}"
-        self._dirty = True
-        logger.info(f"Set basic info for {self.__class__.__name__} {self.entity_id}: name={name}")
+        self.set_property("name", name)
+        self.set_property("description", description or f"A {self.__class__.__name__.lower()} named {name}")
+        logger.info(f"Set basic info for {self.__class__.__name__} {self.building_id}: name={name}")
     
     def set_location(self, location_id: Optional[str]):
         """
-        Set the current location of the entity.
+        Set the current location of the building.
         
         Args:
             location_id (str, optional): The ID of the location, or None
         """
-        self.location_id = location_id
-        self._dirty = True
-        logger.info(f"Set location for {self.__class__.__name__} {self.entity_id} to {location_id}")
+        self.set_property("location_id", location_id)
+        logger.info(f"Set location for {self.__class__.__name__} {self.building_id} to {location_id}")
     
     def set_property(self, key: str, value: Any):
         """
@@ -78,7 +67,6 @@ class Building:
         """
         self.properties[key] = value
         self._dirty = True
-        logger.info(f"Set property {key}={value} for {self.__class__.__name__} {self.entity_id}")
     
     def get_property(self, key: str, default: Any = None) -> Any:
         """
@@ -102,12 +90,13 @@ class Building:
             relation_type (str): The type of relationship
             value (Any, optional): Optional value/strength of relationship
         """
-        if entity_id not in self.relations:
-            self.relations[entity_id] = {}
+        relations = self.get_property("relations", {})
+        if entity_id not in relations:
+            relations[entity_id] = {}
         
-        self.relations[entity_id][relation_type] = value
-        self._dirty = True
-        logger.info(f"Set relation {relation_type} to entity {entity_id} for {self.__class__.__name__} {self.entity_id}")
+        relations[entity_id][relation_type] = value
+        self.set_property("relations", relations)
+        logger.info(f"Set relation {relation_type} to entity {entity_id} for {self.__class__.__name__} {self.building_id}")
     
     def get_relation(self, entity_id: str, relation_type: str, default: Any = None) -> Any:
         """
@@ -121,7 +110,8 @@ class Building:
         Returns:
             Any: The relation value or default
         """
-        return self.relations.get(entity_id, {}).get(relation_type, default)
+        relations = self.get_property("relations", {})
+        return relations.get(entity_id, {}).get(relation_type, default)
     
     ### Entity Specific Methods ###
 
@@ -162,7 +152,8 @@ class Building:
         Returns:
             bool: True if the building is inhabited
         """
-        return bool(self.inhabitants)
+        inhabitants = self.get_property("inhabitants", {})
+        return bool(inhabitants)
     
     def add_inhabitant(self, entity_id: str):
         """
@@ -171,9 +162,10 @@ class Building:
         Args:
             entity_id (str): The ID of the entity to add
         """
-        self.inhabitants[entity_id] = True
-        self._dirty = True
-        logger.info(f"Added entity {entity_id} as an inhabitant of {self.__class__.__name__} {self.entity_id}")
+        inhabitants = self.get_property("inhabitants", {})
+        inhabitants[entity_id] = True
+        self.set_property("inhabitants", inhabitants)
+        logger.info(f"Added entity {entity_id} as an inhabitant of {self.__class__.__name__} {self.building_id}")
 
     def is_under_attack(self) -> bool:
         """
@@ -202,122 +194,116 @@ class Building:
         """
         return self.get_property("is_taxed", False)
 
-    ### Utility Methods ###
+    def is_upgradeable(self) -> bool:
+        """
+        Check if the building is upgradeable.
+        
+        Returns:
+            bool: True if the building is upgradeable
+        """
+        return self.get_property("is_upgradeable", False)
 
-def is_upgradeable(self) -> bool:
-    """
-    Check if the building is upgradeable.
-    
-    Returns:
-        bool: True if the building is upgradeable
-    """
-    return self.get_property("is_upgradeable", False)
+    def upgrade_building(self, level: int):
+        """
+        Upgrade the building to a specified level.
+        
+        Args:
+            level (int): The new level of the building.
+        """
+        if self.is_upgradeable():
+            self.set_property("level", level)
+            logger.info(f"Upgraded {self.__class__.__name__} {self.building_id} to level {level}")
 
-def upgrade_building(self, level: int):
-    """
-    Upgrade the building to a specified level.
-    
-    Args:
-        level (int): The new level of the building.
-    """
-    if(self.is_upgradeable()):
-        self.set_property("level", level)
-        self._dirty = True
-        logger.info(f"Upgraded {self.__class__.__name__} {self.entity_id} to level {level}")
+    def repair(self, cost: int):
+        """
+        Repair the building and remove the 'needs_repair' status.
+        
+        Args:
+            cost (int): The cost of repairing the building.
+        """
+        if self.needs_repairing():
+            self.set_property("needs_repair", False)
+            logger.info(f"Repaired {self.__class__.__name__} {self.building_id} at a cost of {cost}")
 
-def repair(self, cost: int):
-    """
-    Repair the building and remove the 'needs_repair' status.
-    
-    Args:
-        cost (int): The cost of repairing the building.
-    """
-    if self.needs_repairing():
-        self.set_property("needs_repair", False)
-        self._dirty = True
-        logger.info(f"Repaired {self.__class__.__name__} {self.entity_id} at a cost of {cost}")
+    def evict_inhabitant(self, entity_id: str):
+        """
+        Remove an inhabitant from the building.
+        
+        Args:
+            entity_id (str): The ID of the entity to evict.
+        """
+        inhabitants = self.get_property("inhabitants", {})
+        if entity_id in inhabitants:
+            del inhabitants[entity_id]
+            self.set_property("inhabitants", inhabitants)
+            logger.info(f"Evicted entity {entity_id} from {self.__class__.__name__} {self.building_id}")
 
-def evict_inhabitant(self, entity_id: str):
-    """
-    Remove an inhabitant from the building.
-    
-    Args:
-        entity_id (str): The ID of the entity to evict.
-    """
-    if entity_id in self.inhabitants:
-        del self.inhabitants[entity_id]
-        self._dirty = True
-        logger.info(f"Evicted entity {entity_id} from {self.__class__.__name__} {self.entity_id}")
+    def collect_taxes(self) -> int:
+        """
+        Collect taxes from the building's inhabitants.
+        
+        Returns:
+            int: The amount of taxes collected.
+        """
+        return self.get_property("tax_income", 0)
 
-def collect_taxes(self) -> int:
-    """
-    Collect taxes from the building's inhabitants.
-    
-    Returns:
-        int: The amount of taxes collected.
-    """
-    return self.get_property("tax_income", 0)
+    def assign_faction(self, faction_id: str):
+        """
+        Assign the building to a faction.
+        
+        Args:
+            faction_id (str): The ID of the faction.
+        """
+        self.set_property("faction_id", faction_id)
+        logger.info(f"Assigned {self.__class__.__name__} {self.building_id} to faction {faction_id}")
 
-def assign_faction(self, faction_id: str):
-    """
-    Assign the building to a faction.
-    
-    Args:
-        faction_id (str): The ID of the faction.
-    """
-    self.set_property("faction_id", faction_id)
-    self._dirty = True
-    logger.info(f"Assigned {self.__class__.__name__} {self.entity_id} to faction {faction_id}")
+    def discover(self):
+        """
+        Mark the building as discovered.
+        """
+        self.set_property("discovered", True)
+        logger.info(f"{self.__class__.__name__} {self.building_id} has been discovered")
 
-def discover(self):
-    """
-    Mark the building as discovered.
-    """
-    self.set_property("discovered", True)
-    self._dirty = True
-    logger.info(f"{self.__class__.__name__} {self.entity_id} has been discovered")
+    def hide(self):
+        """
+        Hide the building from the player's view.
+        """
+        self.set_property("discovered", False)
+        logger.info(f"{self.__class__.__name__} {self.building_id} has been hidden")
 
-def hide(self):
-    """
-    Hide the building from the player's view.
-    """
-    self.set_property("discovered", False)
-    self._dirty = True
-    logger.info(f"{self.__class__.__name__} {self.entity_id} has been hidden")
+    def calculate_defense(self) -> int:
+        """
+        Calculate the building's defense value.
+        
+        Returns:
+            int: The defense value.
+        """
+        return self.get_property("defense", 0)
 
-def calculate_defense(self) -> int:
-    """
-    Calculate the building's defense value.
-    
-    Returns:
-        int: The defense value.
-    """
-    return self.get_property("defense", 0)
+    def generate_event(self) -> str:
+        """
+        Trigger a random event related to the building.
+        
+        Returns:
+            str: A description of the event.
+        """
+        events = ["fire", "festival", "attack", "earthquake"]
+        event = random.choice(events)
+        logger.info(f"Event '{event}' occurred at {self.__class__.__name__} {self.building_id}")
+        return event
 
-def generate_event(self) -> str:
-    """
-    Trigger a random event related to the building.
-    
-    Returns:
-        str: A description of the event.
-    """
-    events = ["fire", "festival", "attack", "earthquake"]
-    event = random.choice(events)
-    logger.info(f"Event '{event}' occurred at {self.__class__.__name__} {self.entity_id}")
-    return event
-
-def generate_repair_costs(self) -> int:
-    """
-    Generate the repair cost for the building based on its properties.
-    
-    Returns:
-        int: The cost to repair the building
-    """
-    base_cost = self.get_property("repair_base_cost", 100)
-    damage_level = self.get_property("damage_level", 0)  # Assume damage level is a percentage (0-100)
-    repair_cost = int(base_cost * (damage_level / 100))
-    logger.info(f"Generated repair cost for {self.__class__.__name__} {self.entity_id}: {repair_cost}")
-    return repair_cost
+    def generate_repair_costs(self) -> int:
+        """
+        Generate the repair cost for the building based on its properties.
+        
+        Returns:
+            int: The cost to repair the building
+        """
+        base_cost = self.get_property("repair_base_cost", 100)
+        damage_level = self.get_property("damage_level", 0)  # Assume damage level is a percentage (0-100)
+        repair_cost = int(base_cost * (damage_level / 100))
+        logger.info(f"Generated repair cost for {self.__class__.__name__} {self.building_id}: {repair_cost}")
+        return repair_cost
 
     # State tracking methods
     def is_dirty(self) -> bool:
@@ -342,12 +328,8 @@ def generate_repair_costs(self) -> int:
             Dict[str, Any]: Dictionary representation of this entity
         """
         return {
-            "entity_id": self.entity_id,
-            "name": self.name,
-            "description": self.description,
-            "location_id": self.location_id,
-            "properties": self.properties,
-            "relations": self.relations
+            "building_id": self.building_id,
+            "properties": self.properties
         }
     
     @classmethod
@@ -359,12 +341,8 @@ def generate_repair_costs(self) -> int:
             data (Dict[str, Any]): Dictionary data to create entity from
             
         Returns:
-            EntityTemplate: New entity instance
+            Building: New building instance
         """
-        entity = cls(entity_id=data["entity_id"])
-        entity.name = data.get("name")
-        entity.description = data.get("description")
-        entity.location_id = data.get("location_id")
-        entity.properties = data.get("properties", {})
-        entity.relations = data.get("relations", {})
-        return entity
+        building = cls(building_id=data["building_id"])
+        building.properties = data.get("properties", {})
+        return building

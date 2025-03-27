@@ -1,10 +1,10 @@
-# workers/time_worker.py
-from workers.celery_app import app
+# app/workers/time_worker.py
+from app.workers.celery_app import app
 from database.connection import SessionLocal
 from sqlalchemy import text
-from models.core import Worlds, Settlements
-from models.seasons import Seasons
-from workers.shared_worker_utils import process_all_settlements
+from app.models.core import Worlds, Settlements
+from app.models.seasons import Seasons
+from app.workers.shared_worker_utils import process_all_settlements
 import logging
 
 logger = logging.getLogger(__name__)

@@ -4,12 +4,69 @@ from datetime import datetime, timedelta
 import random
 from sqlalchemy.orm import Session
 
-from models.seasons import (
-    Biome, Weather, TransportMethod, RoadType, Area, Season,
-    MovementFactors, MovementParams, MovementResult
-)
+from app.models.seasons import Seasons
 
-from models.biomes import Biomes
+# Define these classes here temporarily since they're not available in models yet
+class Biome:
+    @classmethod
+    def has_attribute(cls, data):
+        return data
+
+class Weather:
+    @classmethod
+    def from_orm(cls, data):
+        return data
+
+class TransportMethod:
+    @classmethod
+    def from_orm(cls, data):
+        return data
+
+class RoadType:
+    @classmethod
+    def has_attribute(cls, data):
+        return data
+
+class Area:
+    @classmethod
+    def from_orm(cls, data):
+        return data
+
+class Season:
+    @classmethod
+    def from_orm(cls, data):
+        return data
+
+class MovementFactors:
+    def __init__(self, base_speed, biome_modifier, road_modifier, 
+                weather_modifier, season_modifier, transport_modifier, 
+                additional_modifiers):
+        self.base_speed = base_speed
+        self.biome_modifier = biome_modifier
+        self.road_modifier = road_modifier
+        self.weather_modifier = weather_modifier
+        self.season_modifier = season_modifier
+        self.transport_modifier = transport_modifier
+        self.additional_modifiers = additional_modifiers
+        
+    def calculate_total_speed(self):
+        return 1.0  # Placeholder
+
+class MovementParams:
+    pass
+
+class MovementResult:
+    def __init__(self, total_distance, total_travel_time, arrival_time, area_times, encounter_chances):
+        self.total_distance = total_distance
+        self.total_travel_time = total_travel_time
+        self.arrival_time = arrival_time
+        self.area_times = area_times
+        self.encounter_chances = encounter_chances
+        self.gold_costs = 0
+        self.resource_costs = {}
+        self.risks = []
+
+from app.models.biomes import Biomes
 
 logger = logging.getLogger(__name__)
 
@@ -130,13 +187,13 @@ class MovementCalculator:
     def _get_trader(self, trader_id: str) -> Any:
         """Get trader data from database."""
         # Implement based on your ORM model
-        from models.core import Traders
+        from app.models.core import Traders
         return self.db.query(Traders).filter(Traders.trader_id == trader_id).first()
     
     def _get_transport(self, transport_id: int) -> TransportMethod:
         """Get transport data from database."""
         # Implement based on your ORM model
-        from models.core import TransportMethods
+        from app.models.core import TransportMethods
         transport_data = self.db.query(TransportMethods).filter(TransportMethods.transport_id == transport_id).first()
         
         # Convert to Pydantic model
@@ -145,13 +202,13 @@ class MovementCalculator:
     def _get_world(self, world_id: str) -> Any:
         """Get world data from database."""
         # Implement based on your ORM model
-        from models.core import Worlds
+        from app.models.core import Worlds
         return self.db.query(Worlds).filter(Worlds.world_id == world_id).first()
     
     def _get_season(self, season_name: str) -> Season:
         """Get season data from database."""
         # Implement based on your ORM model
-        from models.seasons import Seasons
+        from app.models.seasons import Seasons
         season_data = self.db.query(Seasons).filter(Seasons.name == season_name).first()
         
         # Convert to Pydantic model
@@ -160,7 +217,7 @@ class MovementCalculator:
     def _get_area(self, area_id: str) -> Area:
         """Get area data from database."""
         # Implement based on your ORM model
-        from models.core import Areas
+        from app.models.core import Areas
         area_data = self.db.query(Areas).filter(Areas.area_id == area_id).first()
         
         # Convert to Pydantic model
@@ -169,7 +226,7 @@ class MovementCalculator:
     def _get_biome(self, biome_id: int) -> Biome:
         """Get biome data from database."""
         # Implement based on your ORM model
-        from models.biomes import Biomes
+        from app.models.biomes import Biomes
         biome_data = self.db.query(Biomes).filter(Biomes.biome_id == biome_id).first()
         
         # Convert to Pydantic model
@@ -178,7 +235,7 @@ class MovementCalculator:
     def _get_road_between(self, area1_id: str, area2_id: str) -> Optional[RoadType]:
         """Get road type between two areas if one exists."""
         # Implement based on your ORM model
-        from models.transport import AreaRoad, RoadType
+        from app.models.transport import AreaRoad, RoadType
         
         road_data = self.db.query(AreaRoad).filter(
             ((AreaRoad.area_id == area1_id) & (AreaRoad.connecting_area_id == area2_id)) |
@@ -196,7 +253,7 @@ class MovementCalculator:
     def _get_current_weather(self, world_id: str, area_id: str) -> Optional[Weather]:
         """Get current weather for an area."""
         # Implement based on your ORM model
-        from models.travel import WorldWeatherState, WeatherTypes
+        from app.models.travel import WorldWeatherState, WeatherTypes
         
         # Get active weather for this world and area
         weather_state = self.db.query(WorldWeatherState).filter(

@@ -9,3 +9,6 @@ class VillagerDB(BaseModel):
     name: Optional[str] = None
     location_id: Optional[str] = None
     data: str  # JSON string of villager data
+    status: str
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None

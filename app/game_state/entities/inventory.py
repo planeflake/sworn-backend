@@ -5,7 +5,12 @@ class Inventory:
     Represents the inventory of a player or npc.
     This includes items that the player is carrying.
     """
-    def __init__(self):
+    def __init__(self, inventory_id, player):
+        """
+        Initialize the inventory with an empty list of items.
+        """
+        self.inventory_id = inventory_id
+        self.player = player
         self.items = []
         self.capacity = 20
         logger.info(f"Inventory created for {self.player.name}")

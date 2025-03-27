@@ -1,8 +1,8 @@
-from app.game_state.states.trader_state import TraderState
+from app.ai.mcts.states.trader_state import TraderState
 from sqlalchemy import Column, String, Text, Table, MetaData
 from sqlalchemy import select, insert, update, delete
 from sqlalchemy.orm import Session
-from database import get_db
+from database.connection import get_db
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional, Union
 import logging as logger

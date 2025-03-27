@@ -1,0 +1,239 @@
+# app/routers/settlement_router_new.py
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from sqlalchemy.orm import Session
+from typing import List, Optional
+from uuid import UUID
+import json
+import uuid
+from datetime import datetime
+
+from database.connection import get_db
+from app.game_state.services.settlement_service import SettlementService
+from app.workers.settlement_worker_new import (
+    process_settlement_growth, 
+    start_building_construction,
+    start_building_repair,
+    create_new_settlement
+)
+from app.models.core import (
+    Settlements, 
+    SettlementBuildings as Buildings, 
+    ResourceSites, 
+    ResourceSiteTypes,
+    SettlementResources as Resources
+)
+from app.schemas.settlement import (
+    SettlementResponse, 
+    BuildingResponse, 
+    ResourceResponse,
+    SettlementCreate,
+    BuildingCreate
+)
+
+router = APIRouter(prefix="/settlements_new", tags=["settlements_new"])
+
+@router.get("/", response_model=List[SettlementResponse])
+async def get_settlements(world_id: Optional[str] = None, db: Session = Depends(get_db)):
+    """
+    Get all settlements in the world, optionally filtered by world_id.
+    """
+    query = db.query(Settlements)
+    if world_id:
+        query = query.filter(Settlements.world_id == world_id)
+    settlements = query.all()
+    return settlements
+
+@router.get("/{settlement_id}", response_model=SettlementResponse)
+async def get_settlement(settlement_id: str, db: Session = Depends(get_db)):
+    """
+    Get a specific settlement by ID.
+    """
+    # Query the database
+    settlement = db.query(Settlements).filter(Settlements.settlement_id == settlement_id).first()
+    if settlement is None:
+        raise HTTPException(status_code=404, detail="Settlement not found")
+    
+    # Create a service instance
+    settlement_service = SettlementService(db)
+    
+    # Use the manager to load the entity
+    settlement_entity = settlement_service.settlement_manager.load_settlement(settlement_id)
+    if settlement_entity:
+        # Add any additional entity-specific data to the response
+        settlement.entity_data = settlement_entity.to_dict()
+    
+    return settlement
+
+@router.post("/", response_model=dict)
+async def create_settlement(
+    settlement_data: SettlementCreate, 
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Create a new settlement.
+    """
+    # Queue task in the background
+    background_tasks.add_task(
+        create_new_settlement,
+        name=settlement_data.name,
+        location_id=settlement_data.location_id,
+        world_id=settlement_data.world_id
+    )
+    
+    return {
+        "status": "pending",
+        "message": f"Settlement creation started for {settlement_data.name}",
+        "location_id": settlement_data.location_id,
+        "world_id": settlement_data.world_id
+    }
+
+@router.get("/{settlement_id}/buildings", response_model=List[BuildingResponse])
+async def get_settlement_buildings(settlement_id: str, db: Session = Depends(get_db)):
+    """
+    Get all buildings in a settlement.
+    """
+    buildings = db.query(Buildings).filter(Buildings.settlement_id == settlement_id).all()
+    return buildings
+
+@router.post("/{settlement_id}/buildings", response_model=dict)
+async def add_building(
+    settlement_id: str,
+    building_data: BuildingCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Start construction of a new building in a settlement.
+    """
+    # Check if settlement exists
+    settlement = db.query(Settlements).filter(Settlements.settlement_id == settlement_id).first()
+    if settlement is None:
+        raise HTTPException(status_code=404, detail="Settlement not found")
+    
+    # Queue task in the background
+    background_tasks.add_task(
+        start_building_construction,
+        settlement_id=settlement_id,
+        building_type=building_data.building_type
+    )
+    
+    return {
+        "status": "pending",
+        "message": f"Building construction started for {building_data.building_type}",
+        "settlement_id": settlement_id
+    }
+
+@router.post("/{settlement_id}/buildings/{building_id}/repair", response_model=dict)
+async def repair_building(
+    settlement_id: str,
+    building_id: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Start repair of a damaged building.
+    """
+    # Check if building exists and is damaged
+    building = db.query(Buildings).filter(
+        Buildings.building_id == building_id,
+        Buildings.settlement_id == settlement_id
+    ).first()
+    
+    if not building:
+        raise HTTPException(status_code=404, detail="Building not found")
+    
+    if not building.is_damaged:
+        raise HTTPException(status_code=400, detail="Building is not damaged")
+    
+    # Queue task in the background
+    background_tasks.add_task(
+        start_building_repair,
+        settlement_id=settlement_id,
+        building_id=building_id
+    )
+    
+    return {
+        "status": "pending",
+        "message": f"Building repair started for {building.building_type}",
+        "settlement_id": settlement_id,
+        "building_id": building_id
+    }
+
+@router.get("/{settlement_id}/resources", response_model=List[ResourceResponse])
+async def get_settlement_resources(settlement_id: str, db: Session = Depends(get_db)):
+    """
+    Get all resources in a settlement.
+    """
+    resources = db.query(Resources).filter(Resources.settlement_id == settlement_id).all()
+    return resources
+
+@router.post("/{settlement_id}/process", response_model=dict)
+async def trigger_settlement_processing(
+    settlement_id: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Manually trigger processing for a settlement.
+    """
+    # Check if settlement exists
+    settlement = db.query(Settlements).filter(Settlements.settlement_id == settlement_id).first()
+    if settlement is None:
+        raise HTTPException(status_code=404, detail="Settlement not found")
+    
+    # Queue task in the background
+    background_tasks.add_task(
+        process_settlement_growth,
+        settlement_id=settlement_id
+    )
+    
+    return {
+        "status": "pending",
+        "message": f"Settlement processing started for {settlement.settlement_name}",
+        "settlement_id": settlement_id
+    }
+
+@router.get("/{settlement_id}/resource-sites")
+async def get_settlement_resource_sites(settlement_id: str, db: Session = Depends(get_db)):
+    """
+    Get all resource sites for a settlement.
+    """
+    # Check if settlement exists
+    settlement = db.query(Settlements).filter(Settlements.settlement_id == settlement_id).first()
+    if settlement is None:
+        raise HTTPException(status_code=404, detail="Settlement not found")
+    
+    # Get all resource sites for this settlement
+    sites = db.query(ResourceSites).filter(ResourceSites.settlement_id == settlement_id).all()
+    
+    # Prepare response with full details
+    result = []
+    for site in sites:
+        # Get site type information
+        site_type = db.query(ResourceSiteTypes).filter(
+            ResourceSiteTypes.site_type_id == site.site_type_id
+        ).first()
+        
+        if not site_type:
+            continue
+        
+        # Create response
+        site_response = {
+            "site_id": site.site_id,
+            "settlement_id": site.settlement_id,
+            "site_type_id": site.site_type_id,
+            "current_stage": site.current_stage,
+            "depletion_level": site.depletion_level,
+            "development_level": site.development_level,
+            "production_multiplier": site.production_multiplier,
+            "discovery_date": site.discovery_date,
+            "last_updated": site.last_updated,
+            "site_name": site_type.site_name if site_type else "Unknown",
+            "site_category": site_type.site_category if site_type else "Unknown",
+            "description": site_type.description if site_type else "Unknown"
+        }
+        
+        result.append(site_response)
+    
+    return result

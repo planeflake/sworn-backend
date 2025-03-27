@@ -11,8 +11,32 @@ from alembic import context
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 # Import your models
-from models.core import Base
-from database.connection import DATABASE_URL
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
+# Modify sys.modules to help with imports
+import sys
+import importlib.util
+
+# Import core directly
+spec = importlib.util.spec_from_file_location(
+    "core", 
+    os.path.join(os.path.dirname(os.path.dirname(__file__)), "app/models/core.py")
+)
+core = importlib.util.module_from_spec(spec)
+sys.modules["app.models.core"] = core
+spec.loader.exec_module(core)
+
+# Import connection directly
+spec = importlib.util.spec_from_file_location(
+    "connection", 
+    os.path.join(os.path.dirname(os.path.dirname(__file__)), "database/connection.py")
+)
+connection = importlib.util.module_from_spec(spec)
+sys.modules["database.connection"] = connection
+spec.loader.exec_module(connection)
+
+Base = core.Base
+DATABASE_URL = connection.DATABASE_URL
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

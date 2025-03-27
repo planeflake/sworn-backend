@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 
 from database.connection import get_db
-from models.core import (
+from app.models.core import (
     Settlements, 
     SettlementBuildings, 
     SettlementResources, 

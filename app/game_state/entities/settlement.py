@@ -1,97 +1,152 @@
 import logging
-import json
 from typing import List, Dict, Optional, Any
 
 logger = logging.getLogger(__name__)
 
 class Settlement:
     """
-    Template class for game entities.
+    Settlement entity representing villages, towns, and cities in the game world.
     
-    Entities represent game objects with state and behavior. They are the core
-    objects that make up the game world (e.g., traders, settlements, animals).
-    
-    Each entity should have:
+    Settlements have:
     1. A unique identifier
-    2. State properties relevant to its type
-    3. Methods for its behaviors
+    2. Properties relevant to the settlement type
+    3. Methods for settlement behaviors
     4. Serialization/deserialization methods for persistence
     5. State tracking to know when it needs to be saved
     """
     
-    def __init__(self, entity_id: str):
+    def __init__(self, settlement_id: str, name: Optional[str] = None, description: Optional[str] = None):
         """
-        Initialize an entity with a unique ID.
+        Initialize a settlement with a unique ID.
         
         Args:
-            entity_id (str): Unique identifier for this entity
+            settlement_id (str): Unique identifier for this settlement
+            name (str, optional): The settlement's name
+            description (str, optional): A brief description of the settlement
         """
-        self.entity_id = entity_id
-        
-        # Basic information
-        self.name = None
-        self.description = None
-        
-        # Location
+        self.id = settlement_id
+        self.name = name
+        self.description = description or (f"A settlement named {name}" if name else None)
         self.location_id = None
-        
-        # Other state properties specific to this entity type
-        self.properties = {}
-        
-        # Related entities
         self.relations = {}
         
-        # Internal state tracking
-        self._dirty = False  # Has this entity been modified since last save?
+        # Settlement-specific attributes
+        self.is_repairable = False
+        self.is_damaged = False
+        self.has_started_building = False
+        self.is_under_repair = False
+        self.is_built = False
+        self.hidden_resources = []
+        self.get_required_services = []
+        
+        # Additional custom properties (for compatibility)
+        self._properties = {}
+        self._is_dirty = False
     
-    def set_basic_info(self, name: str, description: Optional[str] = None):
+    def __repr__(self) -> str:
+        return f"Settlement(id={self.id}, name='{self.name}')"
+    
+    def __str__(self) -> str:
+        status = []
+        if self.is_damaged:
+            status.append("damaged")
+        if self.is_under_repair:
+            status.append("under repair")
+        if self.is_built:
+            status.append("built")
+        
+        status_str = ", ".join(status) if status else "normal"
+        return f"{self.name} (Settlement, {status_str})"
+    
+    def get_hidden_resources(self) -> List[str]:
         """
-        Set basic information about the entity.
+        Get a list of hidden resources in the
+        settlement that players can discover.
+        """
+        return self.get_property("hidden_resources", [])
+
+    def set_hidden_resources(self, resources: List[str]) -> List[str]:
+        """
+        Set the list of hidden resources in the settlement.
         
         Args:
-            name (str): The entity's name
-            description (str, optional): A brief description of the entity
+            resources (List[str]): List of resource IDs
+        
+        Returns:
+            List[str]: List of resources that were added
+        """
+        added_resources = []
+        for resource in resources:
+            if resource not in self.get_hidden_resources():
+                logger.info(f"Resource {resource} added to Settlement {self.id}")
+                added_resources.append(resource)
+                # Assuming there's a method to actually add the resource
+                self.add_hidden_resource(resource)  # Example method call
+        self._is_dirty = True
+        return added_resources
+
+    def remove_hidden_resources(self, resources: List[str]) -> List[str]:
+        """
+        Remove the list of hidden resources from the settlement.
+        
+        Args:
+            resources (List[str]): List of resource IDs
+        """
+        removed_resources = []
+        for resource in resources:
+            if resource in self.get_hidden_resources():
+                logger.info(f"Resource {resource} removed from Settlement {self.id}")
+                removed_resources.append(resource)
+                # Assuming there's a method to actually remove the resource
+                self.remove_hidden_resource(resource)
+        self._is_dirty = True
+        return removed_resources
+
+    def add_hidden_resource(self, resource_id: str):
+        """
+        Add a hidden resource to the settlement.
+        
+        Args:
+            resource_id (str): The ID of the resource
+        """
+        hidden_resources = self.get_hidden_resources()
+        hidden_resources.append(resource_id)
+        self.set_property("hidden_resources", hidden_resources)
+        self._mark_dirty()
+
+    def set_basic_info(self, name: str, description: Optional[str] = None):
+        """
+        Set basic information about the settlement.
+        
+        Args:
+            name (str): The settlement's name
+            description (str, optional): A brief description of the settlement
         """
         self.name = name
-        self.description = description or f"A {self.__class__.__name__.lower()} named {name}"
-        self._dirty = True
-        logger.info(f"Set basic info for {self.__class__.__name__} {self.entity_id}: name={name}")
+        self.description = description or f"A settlement named {name}"
+        self._mark_dirty()
+        logger.info(f"Set basic info for Settlement {self.id}: name={name}")
     
+    def get_required_services(self) -> List[str]:
+        """
+        Get a list of services required by the settlement.
+        This can be used to determine what services need to be built or hired.
+        
+        Returns:
+            List[str]: List of service IDs
+        """
+        return self.get_property("required_services", [])
+
     def set_location(self, location_id: Optional[str]):
         """
-        Set the current location of the entity.
+        Set the current location of the settlement.
         
         Args:
             location_id (str, optional): The ID of the location, or None
         """
         self.location_id = location_id
-        self._dirty = True
-        logger.info(f"Set location for {self.__class__.__name__} {self.entity_id} to {location_id}")
-    
-    def set_property(self, key: str, value: Any):
-        """
-        Set a property value.
-        
-        Args:
-            key (str): The property name
-            value (Any): The property value
-        """
-        self.properties[key] = value
-        self._dirty = True
-        logger.info(f"Set property {key}={value} for {self.__class__.__name__} {self.entity_id}")
-    
-    def get_property(self, key: str, default: Any = None) -> Any:
-        """
-        Get a property value.
-        
-        Args:
-            key (str): The property name
-            default (Any, optional): Default value if property doesn't exist
-            
-        Returns:
-            Any: The property value or default
-        """
-        return self.properties.get(key, default)
+        self._mark_dirty()
+        logger.info(f"Set location for Settlement {self.id} to {location_id}")
     
     def set_relation(self, entity_id: str, relation_type: str, value: Any = None):
         """
@@ -106,8 +161,8 @@ class Settlement:
             self.relations[entity_id] = {}
         
         self.relations[entity_id][relation_type] = value
-        self._dirty = True
-        logger.info(f"Set relation {relation_type} to entity {entity_id} for {self.__class__.__name__} {self.entity_id}")
+        self._mark_dirty()
+        logger.info(f"Set relation {relation_type} to entity {entity_id} for Settlement {self.id}")
     
     def get_relation(self, entity_id: str, relation_type: str, default: Any = None) -> Any:
         """
@@ -122,18 +177,34 @@ class Settlement:
             Any: The relation value or default
         """
         return self.relations.get(entity_id, {}).get(relation_type, default)
-
-    ### Entity unique methods ###
-
-    def is_under_repair(self) -> bool:
+    
+    # For compatibility with older code
+    def set_property(self, key: str, value: Any):
         """
-        Check if the settlement is under repair.
+        Set a custom property (use only for properties not covered by direct attributes).
         
-        Returns:
-            bool: True if the settlement is under repair
+        Args:
+            key (str): The property name
+            value (Any): The property value
         """
-        return self.get_property("is_under_repair", False)
-
+        self._properties[key] = value
+        self._mark_dirty()
+    
+    def get_property(self, key: str, default: Any = None) -> Any:
+        """
+        Get a custom property (use only for properties not covered by direct attributes).
+        
+        Args:
+            key (str): The property name
+            default (Any, optional): Default value if property doesn't exist
+            
+        Returns:
+            Any: The property value or default
+        """
+        return self._properties.get(key, default)
+    
+    ### Settlement-specific methods ###
+    
     def set_is_repairable(self, is_repairable: bool):
         """
         Set whether the settlement is repairable.
@@ -141,9 +212,10 @@ class Settlement:
         Args:
             is_repairable (bool): Whether the settlement is repairable
         """
-        self.set_property("is_repairable", is_repairable)
-        logger.info(f"Set is_repairable={is_repairable} for {self.__class__.__name__} {self.entity_id}")
-
+        self.is_repairable = is_repairable
+        self._mark_dirty()
+        logger.info(f"Set is_repairable={is_repairable} for Settlement {self.id}")
+    
     def set_is_damaged(self, is_damaged: bool):
         """
         Set whether the settlement is damaged.
@@ -151,9 +223,10 @@ class Settlement:
         Args:
             is_damaged (bool): Whether the settlement is damaged
         """
-        self.set_property("is_damaged", is_damaged)
-        logger.info(f"Set is_damaged={is_damaged} for {self.__class__.__name__} {self.entity_id}")
-
+        self.is_damaged = is_damaged
+        self._mark_dirty()
+        logger.info(f"Set is_damaged={is_damaged} for Settlement {self.id}")
+    
     def set_has_started_building(self, has_started_building: bool):
         """
         Set whether the settlement has started building.
@@ -161,19 +234,38 @@ class Settlement:
         Args:
             has_started_building (bool): Whether the settlement has started building
         """
-        self.set_property("has_started_building", has_started_building)
-        logger.info(f"Set has_started_building={has_started_building} for {self.__class__.__name__} {self.entity_id}")
-
-    def is_built(self) -> bool:
+        self.has_started_building = has_started_building
+        self._mark_dirty()
+        logger.info(f"Set has_started_building={has_started_building} for Settlement {self.id}")
+    
+    def set_is_under_repair(self, is_under_repair: bool):
         """
-        Check if the settlement is built.
+        Set whether the settlement is under repair.
         
-        Returns:
-            bool: True if the settlement is built
+        Args:
+            is_under_repair (bool): Whether the settlement is under repair
         """
-        return self.get_property("is_built", False)
-
+        self.is_under_repair = is_under_repair
+        self._mark_dirty()
+        logger.info(f"Set is_under_repair={is_under_repair} for Settlement {self.id}")
+    
+    def set_is_built(self, is_built: bool):
+        """
+        Set whether the settlement is built.
+        
+        Args:
+            is_built (bool): Whether the settlement is built
+        """
+        self.is_built = is_built
+        self._mark_dirty()
+        logger.info(f"Set is_built={is_built} for Settlement {self.id}")
+    
     # State tracking methods
+    def _mark_dirty(self):
+        """Mark this entity as having unsaved changes."""
+        self._is_dirty = True
+    
+    @property
     def is_dirty(self) -> bool:
         """
         Check if this entity has unsaved changes.
@@ -181,11 +273,11 @@ class Settlement:
         Returns:
             bool: True if there are unsaved changes
         """
-        return self._dirty
+        return self._is_dirty
     
-    def mark_clean(self):
+    def clean(self):
         """Mark this entity as having no unsaved changes."""
-        self._dirty = False
+        self._is_dirty = False
     
     # Serialization methods
     def to_dict(self) -> Dict[str, Any]:
@@ -196,12 +288,17 @@ class Settlement:
             Dict[str, Any]: Dictionary representation of this entity
         """
         return {
-            "entity_id": self.entity_id,
+            "id": self.id,
             "name": self.name,
             "description": self.description,
             "location_id": self.location_id,
-            "properties": self.properties,
-            "relations": self.relations
+            "relations": self.relations,
+            "is_repairable": self.is_repairable,
+            "is_damaged": self.is_damaged,
+            "has_started_building": self.has_started_building,
+            "is_under_repair": self.is_under_repair, 
+            "is_built": self.is_built,
+            "properties": self._properties
         }
     
     @classmethod
@@ -213,12 +310,17 @@ class Settlement:
             data (Dict[str, Any]): Dictionary data to create entity from
             
         Returns:
-            EntityTemplate: New entity instance
+            Settlement: New settlement instance
         """
-        entity = cls(entity_id=data["entity_id"])
-        entity.name = data.get("name")
-        entity.description = data.get("description")
-        entity.location_id = data.get("location_id")
-        entity.properties = data.get("properties", {})
-        entity.relations = data.get("relations", {})
-        return entity
+        settlement = cls(settlement_id=data["id"])
+        settlement.name = data.get("name")
+        settlement.description = data.get("description")
+        settlement.location_id = data.get("location_id")
+        settlement.relations = data.get("relations", {})
+        settlement.is_repairable = data.get("is_repairable", False)
+        settlement.is_damaged = data.get("is_damaged", False)
+        settlement.has_started_building = data.get("has_started_building", False)
+        settlement.is_under_repair = data.get("is_under_repair", False)
+        settlement.is_built = data.get("is_built", False)
+        settlement._properties = data.get("properties", {})
+        return settlement

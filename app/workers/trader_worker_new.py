@@ -1,124 +1,219 @@
-# workers/trader_worker_new.py
-from workers.celery_app import app
+# app/workers/trader_worker_new.py
+from app.workers.celery_app import app
 from database.connection import SessionLocal
-import logging
-from typing import Optional
-
-# Import the service that contains the actual implementation
 from app.game_state.services.trader_service import TraderService
+import logging
+import asyncio
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 @app.task
 def process_trader_movement(trader_id: str):
     """
-    Process trader movement decision and execution with travel through areas.
-    
-    This task delegates to the TraderService, which contains the actual implementation
-    using the new class-based game state architecture.
+    Process trader movement decision and execution.
+    This task uses the new TraderService which integrates MCTS for intelligent decision making.
     
     Args:
-        trader_id (str): The ID of the trader to process
+        trader_id: The ID of the trader to process
         
     Returns:
-        dict: Result of the movement processing
+        Dict: Result status and details
     """
     logger.info(f"Processing movement for trader {trader_id}")
     
-    # Create database session
     db = SessionLocal()
     try:
-        # Create service with the database session
-        service = TraderService(db)
+        # Create trader service
+        trader_service = TraderService(db)
         
-        # Delegate to service implementation
-        result = service.process_trader_movement(trader_id)
+        # Process trader movement using async function
+        result = asyncio.run(trader_service.process_trader_movement(trader_id))
         
         # Log the result
-        if result["status"] == "success":
-            logger.info(f"Successfully processed trader {trader_id}: {result.get('action', 'unknown action')}")
-        else:
-            logger.warning(f"Failed to process trader {trader_id}: {result.get('message', 'Unknown error')}")
+        log_level = logging.ERROR if result.get("status") != "success" else logging.INFO
+        logger.log(log_level, f"Trader movement result: {result}")
         
         return result
+    
     except Exception as e:
-        logger.exception(f"Error in process_trader_movement task: {e}")
-        return {"status": "error", "message": f"Task error: {str(e)}"}
+        logger.exception(f"Error processing trader movement: {e}")
+        return {"status": "error", "message": str(e)}
     finally:
         db.close()
 
 @app.task
 def continue_area_travel(trader_id: str):
     """
-    Continue trader journey through areas.
-    
-    This task delegates to the TraderService, which contains the actual implementation
-    using the new class-based game state architecture.
+    Continue a trader's journey through areas.
     
     Args:
-        trader_id (str): The ID of the trader
+        trader_id: The ID of the trader
         
     Returns:
-        dict: Result of the travel progress
+        Dict: Result status and details
     """
     logger.info(f"Continuing area travel for trader {trader_id}")
     
-    # Create database session
     db = SessionLocal()
     try:
-        # Create service with the database session
-        service = TraderService(db)
+        # Create trader service
+        trader_service = TraderService(db)
         
-        # Delegate to service implementation
-        result = service.continue_area_travel(trader_id)
+        # Continue area travel using async function
+        result = asyncio.run(trader_service.continue_area_travel(trader_id))
         
-        # Log the result
-        if result["status"] == "success":
-            logger.info(f"Successfully continued travel for trader {trader_id}: {result.get('action', 'unknown action')}")
-        else:
-            logger.warning(f"Failed to continue travel for trader {trader_id}: {result.get('message', 'Unknown error')}")
+        log_level = logging.ERROR if result.get("status") != "success" else logging.INFO
+        logger.log(log_level, f"Area travel result: {result}")
         
         return result
+    
     except Exception as e:
-        logger.exception(f"Error in continue_area_travel task: {e}")
-        return {"status": "error", "message": f"Task error: {str(e)}"}
+        logger.exception(f"Error continuing area travel: {e}")
+        return {"status": "error", "message": str(e)}
     finally:
         db.close()
 
 @app.task
 def process_all_traders(world_id: Optional[str] = None):
     """
-    Process movement for all traders in a world (or all worlds if none specified).
-    
-    This task delegates to the TraderService, which contains the actual implementation
-    using the new class-based game state architecture.
+    Process movement for all traders in a world or all worlds.
     
     Args:
-        world_id (str, optional): The world ID to process traders for, or None for all worlds
+        world_id: Optional ID of the world to process traders for
         
     Returns:
-        dict: Result of processing all traders
+        Dict: Summary of processing results
     """
     logger.info(f"Processing all traders" + (f" in world {world_id}" if world_id else ""))
     
-    # Create database session
     db = SessionLocal()
     try:
-        # Create service with the database session
-        service = TraderService(db)
+        # Create trader service
+        trader_service = TraderService(db)
         
-        # Delegate to service implementation
-        result = service.process_all_traders(world_id)
+        # Process all traders using async function
+        result = asyncio.run(trader_service.process_all_traders(world_id))
         
-        # Log the result
-        if result["status"] == "success":
-            logger.info(f"Successfully processed {result.get('processed', 0)}/{result.get('total', 0)} traders")
-        else:
-            logger.warning(f"Failed to process traders: {result.get('message', 'Unknown error')}")
+        log_level = logging.ERROR if result.get("status") != "success" else logging.INFO
+        logger.log(log_level, f"Process all traders result: {result}")
         
         return result
+    
     except Exception as e:
-        logger.exception(f"Error in process_all_traders task: {e}")
-        return {"status": "error", "message": f"Task error: {str(e)}"}
+        logger.exception(f"Error processing all traders: {e}")
+        return {"status": "error", "message": str(e)}
+    finally:
+        db.close()
+
+@app.task
+def create_random_trader_tasks(world_id: Optional[str] = None, task_count: int = 3):
+    """
+    Create a specified number of random trader assistance tasks.
+    This can be used to simulate traders needing help even when they're not actually moving.
+    
+    Args:
+        world_id: Optional ID of the world to create tasks for
+        task_count: Number of tasks to create
+        
+    Returns:
+        Dict: Summary of task creation
+    """
+    logger.info(f"Creating {task_count} random trader tasks" + (f" in world {world_id}" if world_id else ""))
+    
+    db = SessionLocal()
+    try:
+        # Get traders from the database
+        from app.models.core import Traders, Areas, Worlds
+        import random
+        
+        # Query for active traders
+        traders_query = db.query(Traders)
+        if world_id:
+            traders_query = traders_query.filter(Traders.world_id == world_id)
+        
+        # Only select traders that don't already have active tasks
+        traders = traders_query.filter(Traders.active_task_id.is_(None)).all()
+        
+        if not traders:
+            return {
+                "status": "warning",
+                "message": "No available traders found for creating tasks",
+                "created_count": 0
+            }
+        
+        # Get some random areas
+        areas = db.query(Areas).limit(50).all()
+        if not areas:
+            return {
+                "status": "warning",
+                "message": "No areas found for creating tasks",
+                "created_count": 0
+            }
+        
+        # Get the world(s)
+        worlds = []
+        if world_id:
+            world = db.query(Worlds).filter(Worlds.world_id == world_id).first()
+            if world:
+                worlds = [world]
+        else:
+            worlds = db.query(Worlds).all()
+        
+        if not worlds:
+            return {
+                "status": "warning",
+                "message": "No worlds found for creating tasks",
+                "created_count": 0
+            }
+        
+        # Issue types for trader tasks
+        issue_types = [
+            "bandit_attack",
+            "broken_cart",
+            "sick_animals",
+            "lost_cargo",
+            "food_shortage"
+        ]
+        
+        # Create tasks
+        created_tasks = []
+        for _ in range(min(task_count, len(traders))):
+            # Select a random trader, area, and issue type
+            trader = random.choice(traders)
+            area = random.choice(areas)
+            issue_type = random.choice(issue_types)
+            world = random.choice(worlds)
+            
+            # Remove the selected trader from the list to avoid duplicates
+            traders.remove(trader)
+            
+            # Create the task
+            from app.workers.task_worker import create_trader_assistance_task
+            result = create_trader_assistance_task(
+                trader_id=str(trader.trader_id),
+                area_id=str(area.area_id),
+                world_id=str(world.world_id),
+                issue_type=issue_type
+            )
+            
+            if result.get("status") == "success":
+                created_tasks.append({
+                    "trader_id": str(trader.trader_id),
+                    "area_id": str(area.area_id),
+                    "task_id": result.get("task_id"),
+                    "issue_type": issue_type
+                })
+        
+        return {
+            "status": "success",
+            "message": f"Created {len(created_tasks)} trader tasks",
+            "created_count": len(created_tasks),
+            "tasks": created_tasks
+        }
+    
+    except Exception as e:
+        logger.exception(f"Error creating random trader tasks: {e}")
+        return {"status": "error", "message": str(e)}
     finally:
         db.close()

@@ -8,7 +8,7 @@ import random
 from datetime import datetime
 
 from database.connection import get_db
-from models.core import (
+from app.models.core import (
     Areas, 
     AreaEncounterTypes,
     AreaEncounterOutcomes,
@@ -30,7 +30,7 @@ from app.schemas.area import (
     TravelResponse,
     RouteResponse
 )
-from workers.area_worker import generate_encounter, resolve_encounter
+from app.workers.area_worker import generate_encounter, resolve_encounter
 
 router = APIRouter(prefix="/areas", tags=["areas"])
 
@@ -107,7 +107,7 @@ async def create_area(area_data: AreaCreate, db: Session = Depends(get_db)):
     connected_areas = json.dumps([str(a) for a in area_data.connected_areas])
     
     new_area = Areas(
-        area_id=str(uuid.uuid4()),
+        area_id=str(UUID.uuid4()),
         world_id=str(area_data.world_id),
         theme_id=str(area_data.theme_id) if area_data.theme_id else None,
         area_name=area_data.area_name,

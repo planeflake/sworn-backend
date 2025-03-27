@@ -35,6 +35,24 @@ class TraderResponse(TraderBase, TimeStampModel):
 
     class Config:
         orm_mode = True
+        
+class TraderUpdate(BaseModel):
+    npc_name: Optional[str] = None
+    current_settlement_id: Optional[UUID4] = None
+    destination_id: Optional[UUID4] = None
+    cart_capacity: Optional[int] = None
+    cart_health: Optional[int] = None
+    gold: Optional[int] = None
+    personality: Optional[Dict[str, Any]] = None
+    biome_preferences: Optional[Dict[str, float]] = None
+    cart_upgrades: Optional[List[str]] = None
+    schedule: Optional[Dict[str, Any]] = None
+    
+class TraderWithPath(TraderResponse):
+    current_area_id: Optional[str] = None
+    journey_path: Optional[List[str]] = None
+    path_position: Optional[int] = None
+    journey_progress: Optional[int] = None
 
 class TraderInventoryBase(BaseModel):
     resource_type_id: UUID4

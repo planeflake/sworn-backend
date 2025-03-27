@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # This is a type placeholder - replace with your actual entity class
 EntityType = Any  # Should be your entity class like 'EntityTemplate'
 
-class ManagerTemplate:
+class SettlementManager:
     """
     Template for entity managers that handle persistence and lifecycle.
     
@@ -88,7 +88,7 @@ class ManagerTemplate:
         logger.info(f"Created new entity: {name} (ID: {entity_id})")
         return entity
     
-    def load_entity(self, entity_id: str) -> Optional[EntityType]:
+    def load_settlement(self, settlement_id: str) -> Optional[EntityType]:
         """
         Load an entity from the database or cache.
         
@@ -99,19 +99,19 @@ class ManagerTemplate:
             EntityType: The loaded entity, or None if not found
         """
         # Check if already loaded in cache
-        if entity_id in self.entities:
-            return self.entities[entity_id]
+        if settlement_id in self.entities:
+            return self.entities[settlement_id]
         
         # Load from database
         db = get_db()
         with Session(db) as session:
             stmt = select(self.entity_table).where(
-                self.entity_table.c.entity_id == entity_id
+                self.entity_table.c.entity_id == settlement_id
             )
             result = session.execute(stmt).first()
             
             if result is None:
-                logger.warning(f"Entity not found: {entity_id}")
+                logger.warning(f"Entity not found: {settlement_id}")
                 return None
             
             # Deserialize entity data
@@ -122,16 +122,16 @@ class ManagerTemplate:
                 entity = None  # Replace with your actual deserialization
                 
                 # Cache the entity
-                self.entities[entity_id] = entity
+                self.entities[settlement_id] = entity
                 
-                logger.info(f"Loaded entity: {entity.name} (ID: {entity_id})")
+                logger.info(f"Loaded entity: {entity.name} (ID: {settlement_id})")
                 return entity
                 
             except (json.JSONDecodeError, KeyError) as e:
-                logger.error(f"Error deserializing entity {entity_id}: {e}")
+                logger.error(f"Error deserializing entity {settlement_id}: {e}")
                 return None
     
-    def save_entity(self, entity: EntityType) -> bool:
+    def save_settlement(self, settlement: EntityType) -> bool:
         """
         Save an entity to the database.
         
@@ -142,13 +142,13 @@ class ManagerTemplate:
             bool: True if successful, False otherwise
         """
         # Skip if no changes to save
-        if not entity.is_dirty():
+        if not settlement.is_dirty():
             return True
         
         # Convert entity to JSON
         try:
-            entity_dict = entity.to_dict()
-            entity_data = json.dumps(entity_dict)
+            settlement_dict = settlement.to_dict()
+            settlement_data = json.dumps(settlement_dict)
             
             # Save to database
             db = get_db()
@@ -156,48 +156,73 @@ class ManagerTemplate:
                 try:
                     # Check if entity already exists
                     stmt = select(self.entity_table).where(
-                        self.entity_table.c.entity_id == entity.entity_id
+                        self.entity_table.c.entity_id == settlement.settlement_id
                     )
                     exists = session.execute(stmt).first() is not None
                     
                     if exists:
                         # Update existing entity
                         stmt = update(self.entity_table).where(
-                            self.entity_table.c.entity_id == entity.entity_id
+                            self.entity_table.c.entity_id == settlement.entity_id
                         ).values(
-                            name=entity.name,
-                            location_id=entity.location_id,
-                            data=entity_data
+                            name=settlement.name,
+                            location_id=settlement.location_id,
+                            data=settlement_data
                         )
                         session.execute(stmt)
                     else:
                         # Insert new entity
                         stmt = insert(self.entity_table).values(
-                            entity_id=entity.entity_id,
-                            name=entity.name,
-                            location_id=entity.location_id,
-                            data=entity_data
+                            entity_id=settlement.entity_id,
+                            name=settlement.name,
+                            location_id=settlement.location_id,
+                            data=settlement_data
                         )
                         session.execute(stmt)
                     
                     session.commit()
                     
                     # Mark entity as clean (no unsaved changes)
-                    entity.mark_clean()
+                    settlement.mark_clean()
                     
-                    logger.info(f"Saved entity: {entity.name} (ID: {entity.entity_id})")
+                    logger.info(f"Saved entity: {settlement.name} (ID: {settlement.settlement_id})")
                     return True
                     
                 except Exception as e:
                     session.rollback()
-                    logger.error(f"Failed to save entity {entity.entity_id}: {str(e)}")
+                    logger.error(f"Failed to save entity {settlement.entity_id}: {str(e)}")
                     return False
         
         except Exception as e:
-            logger.error(f"Error serializing entity {entity.entity_id}: {str(e)}")
+            logger.error(f"Error serializing entity {settlement.entity_id}: {str(e)}")
             return False
     
-    def delete_entity(self, entity_id: str) -> bool:
+    def find_settlements_by_area(self, area_id: str) -> List[EntityType]:
+        """
+        Find all entities in a specific area.
+        
+        Args:
+            area_id (str): The ID of the area to search
+            
+        Returns:
+            List[EntityType]: List of entities in the area
+        """
+        db = get_db()
+        with Session(db) as session:
+            stmt = select(self.entity_table.c.entity_id).where(
+                self.entity_table.c.location_id == area_id
+            )
+            results = session.execute(stmt).fetchall()
+            
+            entities = []
+            for result in results:
+                entity_id = result[0]
+                entity = self.load_entity(entity_id)
+                if entity:
+                    entities.append(entity)
+            return entities
+
+    def delete_entity(self, settlement_id: str) -> bool:
         """
         Delete an entity from the database.
         
@@ -208,25 +233,25 @@ class ManagerTemplate:
             bool: True if successful, False otherwise
         """
         # Remove from cache if present
-        if entity_id in self.entities:
-            del self.entities[entity_id]
+        if settlement_id in self.entities:
+            del self.entities[settlement_id]
         
         # Delete from database
         db = get_db()
         with Session(db) as session:
             try:
                 stmt = delete(self.entity_table).where(
-                    self.entity_table.c.entity_id == entity_id
+                    self.entity_table.c.entity_id == settlement_id
                 )
                 session.execute(stmt)
                 session.commit()
                 
-                logger.info(f"Deleted entity: {entity_id}")
+                logger.info(f"Deleted entity: {settlement_id}")
                 return True
                 
             except Exception as e:
                 session.rollback()
-                logger.error(f"Failed to delete entity {entity_id}: {str(e)}")
+                logger.error(f"Failed to delete entity {settlement_id}: {str(e)}")
                 return False
     
     def get_all_entities(self) -> List[EntityType]:
@@ -298,7 +323,7 @@ class ManagerTemplate:
             
             return None
     
-    def update_entity_location(self, entity_id: str, location_id: str) -> bool:
+    def update_entity_location(self, settlement_id: str, location_id: str) -> bool:
         """
         Update an entity's location.
         
@@ -309,9 +334,9 @@ class ManagerTemplate:
         Returns:
             bool: True if successful, False otherwise
         """
-        entity = self.load_entity(entity_id)
+        entity = self.load_entity(settlement_id)
         if not entity:
-            logger.warning(f"Cannot update location: Entity not found: {entity_id}")
+            logger.warning(f"Cannot update location: Entity not found: {settlement_id}")
             return False
         
         entity.set_location(location_id)

@@ -1,7 +1,7 @@
-from workers.celery_app import app
+from app.workers.celery_app import app
 from database.connection import SessionLocal
-from models.core import Settlements, Worlds
-from models.seasons import Seasons
+from app.models.core import Settlements, Worlds
+from app.models.seasons import Seasons
 from sqlalchemy import text
 
 @app.task
@@ -70,7 +70,7 @@ def process_all_settlements(world_id=None):
         settlements = query.all()
         
         # Import here to avoid circular import
-        from workers.settlement_worker import process_settlement_production
+        from app.workers.settlement_worker import process_settlement_production
         
         for settlement in settlements:
             process_settlement_production.delay(str(settlement.settlement_id))

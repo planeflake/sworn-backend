@@ -1,125 +1,268 @@
 #!/usr/bin/env python
 # utils/test_mcts_trader.py
+"""
+Test script for the MCTS trader decision making.
+This script demonstrates how the MCTS algorithm works with trader state
+and can be used to debug and improve the decision making process.
+"""
 
 import sys
 import os
+import asyncio
 import logging
 import json
+import random
 import uuid
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from datetime import datetime
 
-# Add root directory to path for imports
+# Add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from database.connection import get_db
-from app.game_state.manager import GameStateManager
-from models.core import Traders, Settlements
+# Set up logging
+logging.basicConfig(level=logging.INFO, 
+                   format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('mcts_trader_test.log')
-    ]
-)
-logger = logging.getLogger("mcts_trader_test")
+# Import required components
+from database.connection import SessionLocal
+from app.game_state.entities.trader import Trader
+from app.ai.mcts.states.trader_state import TraderState
+from app.ai.mcts.core import MCTS
+from app.game_state.services.trader_service import TraderService
+from models.core import Traders, Settlements, Worlds, Areas
 
-def test_mcts_trader(trader_id=None, simulations=100, log_level="INFO"):
-    """
-    Test the MCTS implementation for trader decision making.
+async def create_test_trader():
+    """Create a test trader with sample data"""
+    trader_id = str(uuid.uuid4())
+    trader = Trader(trader_id)
     
-    Args:
-        trader_id: The ID of a specific trader to test. If None, will test for all traders in a settlement.
-        simulations: Number of MCTS simulations to run.
-        log_level: Logging level (INFO, DEBUG, etc.)
-    """
-    # Set log level
-    logger.setLevel(getattr(logging, log_level))
+    # Set basic information
+    trader.set_basic_info("Test Trader", "A trader created for testing MCTS")
     
-    # Get a database session
-    session = next(get_db())
+    # Set resources
+    trader.set_property("gold", 100)
+    trader.add_resource("cloth", 5)
+    trader.add_resource("spices", 3)
+    trader.add_resource("tools", 2)
     
+    # Set location preferences
+    trader.set_property("preferred_biomes", ["forest", "plains"])
+    
+    return trader
+
+async def create_test_world_data():
+    """Create sample world data for testing"""
+    # Create a simple world with settlements and connections
+    settlement_ids = [str(uuid.uuid4()) for _ in range(5)]
+    
+    # Create settlements
+    settlements = {
+        settlement_ids[0]: {
+            "id": settlement_ids[0],
+            "name": "Riverdale",
+            "biome": "forest",
+            "population": 500,
+            "settlement_type": "town"
+        },
+        settlement_ids[1]: {
+            "id": settlement_ids[1],
+            "name": "Oakvale",
+            "biome": "forest",
+            "population": 300,
+            "settlement_type": "village"
+        },
+        settlement_ids[2]: {
+            "id": settlement_ids[2],
+            "name": "Dryfields",
+            "biome": "plains",
+            "population": 400,
+            "settlement_type": "town"
+        },
+        settlement_ids[3]: {
+            "id": settlement_ids[3],
+            "name": "Stonebridge",
+            "biome": "mountains",
+            "population": 700,
+            "settlement_type": "city"
+        },
+        settlement_ids[4]: {
+            "id": settlement_ids[4],
+            "name": "Sandport",
+            "biome": "coast",
+            "population": 800,
+            "settlement_type": "city"
+        }
+    }
+    
+    # Create location graph (connections between settlements)
+    location_graph = {
+        settlement_ids[0]: [settlement_ids[1], settlement_ids[2]],  # Riverdale -> Oakvale, Dryfields
+        settlement_ids[1]: [settlement_ids[0], settlement_ids[3]],  # Oakvale -> Riverdale, Stonebridge
+        settlement_ids[2]: [settlement_ids[0], settlement_ids[4]],  # Dryfields -> Riverdale, Sandport
+        settlement_ids[3]: [settlement_ids[1], settlement_ids[4]],  # Stonebridge -> Oakvale, Sandport
+        settlement_ids[4]: [settlement_ids[2], settlement_ids[3]]   # Sandport -> Dryfields, Stonebridge
+    }
+    
+    # Create market data (what settlements buy/sell)
+    market_data = {}
+    for sid in settlement_ids:
+        market_data[sid] = {
+            "buying": {},  # What the settlement buys (trader sells)
+            "selling": {}  # What the settlement sells (trader buys)
+        }
+    
+    # Riverdale buys cloth at good price, sells tools
+    market_data[settlement_ids[0]]["buying"]["cloth"] = 12
+    market_data[settlement_ids[0]]["selling"]["tools"] = 8
+    
+    # Oakvale buys tools at good price, sells cloth
+    market_data[settlement_ids[1]]["buying"]["tools"] = 15
+    market_data[settlement_ids[1]]["selling"]["cloth"] = 5
+    
+    # Dryfields buys spices at good price, sells food
+    market_data[settlement_ids[2]]["buying"]["spices"] = 20
+    market_data[settlement_ids[2]]["selling"]["food"] = 4
+    
+    # Stonebridge buys food at medium price, sells luxury goods
+    market_data[settlement_ids[3]]["buying"]["food"] = 8
+    market_data[settlement_ids[3]]["selling"]["luxury_goods"] = 25
+    
+    # Sandport buys luxury goods at high price, sells spices
+    market_data[settlement_ids[4]]["buying"]["luxury_goods"] = 35
+    market_data[settlement_ids[4]]["selling"]["spices"] = 10
+    
+    # Create world data structure
+    world_data = {
+        "world_id": str(uuid.uuid4()),
+        "current_game_day": 42,
+        "current_season": "summer",
+        "locations": settlements,
+        "market_data": market_data
+    }
+    
+    return world_data, location_graph, settlement_ids
+
+async def run_mcts_simulation(trader, world_data, location_graph, current_location_id):
+    """Run a single MCTS simulation and return the best action"""
+    # Set trader's current location
+    trader.set_location(current_location_id, "current")
+    
+    # Create trader state for MCTS
+    trader_state = TraderState(
+        trader=trader,
+        world_info=world_data,
+        location_graph=location_graph
+    )
+    
+    # Run MCTS search
+    mcts = MCTS(exploration_weight=1.0)
+    num_simulations = 200  # More simulations for better decisions
+    
+    best_action = mcts.search(
+        root_state=trader_state,
+        get_legal_actions_fn=lambda s: s.get_possible_actions(),
+        apply_action_fn=lambda s, a: s.apply_action(a),
+        is_terminal_fn=lambda s: s.is_terminal(),
+        get_reward_fn=lambda s: s.get_reward(),
+        num_simulations=num_simulations
+    )
+    
+    return best_action, mcts.decision_stats
+
+async def test_with_real_database():
+    """Test the trader service with data from the actual database"""
+    logger.info("Testing with real database data")
+    
+    db = SessionLocal()
     try:
-        manager = GameStateManager(session)
+        # Get an existing trader
+        trader_db = db.query(Traders).first()
+        if not trader_db:
+            logger.error("No traders found in database")
+            return
         
-        # If trader_id provided, test for that trader
-        if trader_id:
-            logger.info(f"Testing MCTS decision for trader {trader_id}")
-            result = manager.get_mcts_trader_decision(trader_id, simulations)
-            
-            if result["status"] == "success":
-                logger.info(f"MCTS decision successful")
-                logger.info(f"Selected destination: {result['next_settlement_name']} ({result['next_settlement_id']})")
-                
-                # Pretty print the MCTS stats
-                stats = result.get("mcts_stats", {})
-                logger.info(f"MCTS stats:")
-                logger.info(f"  - Simulations: {stats.get('simulations', 0)}")
-                logger.info(f"  - Actions evaluated: {stats.get('actions_evaluated', 0)}")
-                logger.info(f"  - Exploration weight: {stats.get('exploration_weight', 0)}")
-                
-                # Log action stats
-                action_stats = stats.get("action_stats", {})
-                logger.info("Action evaluations:")
-                for action, action_data in action_stats.items():
-                    avg_value = action_data.get("average_value", 0)
-                    visits = action_data.get("visits", 0)
-                    logger.info(f"  - {action}: {visits} visits, avg value {avg_value:.2f}")
-                
-                return result
-            else:
-                logger.error(f"MCTS decision failed: {result.get('message', 'Unknown error')}")
-                return result
-        else:
-            # No specific trader ID provided, test for a random trader in a settlement
-            logger.info("No trader ID provided, finding an active trader...")
-            
-            # Find a trader who is in a settlement
-            trader = session.query(Traders).filter(Traders.current_settlement_id != None).first()
-            
-            if not trader:
-                logger.error("No suitable trader found for testing")
-                return {"status": "error", "message": "No suitable trader found"}
-            
-            logger.info(f"Selected trader: {trader.npc_name} ({trader.trader_id})")
-            result = manager.get_mcts_trader_decision(str(trader.trader_id), simulations)
-            
-            if result["status"] == "success":
-                logger.info(f"MCTS decision successful")
-                logger.info(f"Selected destination: {result['next_settlement_name']} ({result['next_settlement_id']})")
-                
-                # Pretty print the MCTS stats
-                stats = result.get("mcts_stats", {})
-                logger.info(f"MCTS stats:")
-                logger.info(f"  - Simulations: {stats.get('simulations', 0)}")
-                logger.info(f"  - Actions evaluated: {stats.get('actions_evaluated', 0)}")
-                
-                return result
-            else:
-                logger.error(f"MCTS decision failed: {result.get('message', 'Unknown error')}")
-                return result
-    
+        logger.info(f"Using trader: {trader_db.trader_id}")
+        
+        # Create trader service
+        trader_service = TraderService(db)
+        
+        # Process trader movement
+        result = await trader_service.process_trader_movement(str(trader_db.trader_id))
+        
+        logger.info(f"TraderService decision result: {result}")
+        
     except Exception as e:
-        logger.exception(f"Error testing MCTS trader: {e}")
-        return {"status": "error", "message": str(e)}
+        logger.exception(f"Error in database test: {e}")
     finally:
-        session.close()
+        db.close()
+
+async def main():
+    """Main test function"""
+    logger.info("Starting MCTS trader test")
+    
+    # Create test trader
+    trader = await create_test_trader()
+    logger.info(f"Created test trader: {trader}")
+    
+    # Create test world data
+    world_data, location_graph, settlement_ids = await create_test_world_data()
+    logger.info(f"Created test world with {len(settlement_ids)} settlements")
+    
+    # Start at the first settlement
+    current_location_id = settlement_ids[0]
+    logger.info(f"Starting at settlement: {world_data['locations'][current_location_id]['name']}")
+    
+    # Run MCTS simulation
+    best_action, stats = await run_mcts_simulation(trader, world_data, location_graph, current_location_id)
+    
+    # Display results
+    logger.info(f"MCTS decision stats: {stats}")
+    
+    if best_action and best_action.get("type") == "move":
+        destination_id = best_action["location_id"]
+        destination_name = world_data["locations"][destination_id]["name"]
+        logger.info(f"Best action: Move to {destination_name}")
+        
+        # Explain the decision
+        biome = world_data["locations"][destination_id]["biome"]
+        is_preferred_biome = biome in trader.get_property("preferred_biomes", [])
+        
+        reasons = []
+        if is_preferred_biome:
+            reasons.append(f"It has a preferred biome ({biome})")
+        
+        # Check market opportunities
+        market = world_data["market_data"][destination_id]
+        for item, price in market["buying"].items():
+            if item in trader.get_property("inventory", {}):
+                reasons.append(f"Can sell {item} for {price} gold")
+        
+        logger.info(f"Reasons for this decision: {', '.join(reasons) if reasons else 'Unknown'}")
+    
+    else:
+        logger.info(f"Best action: {best_action}")
+    
+    # Test with real database if available
+    try:
+        await test_with_real_database()
+    except Exception as e:
+        logger.warning(f"Database test skipped: {e}")
+    
+    logger.info("MCTS trader test completed")
 
 if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description="Test MCTS for trader decision making")
-    parser.add_argument("--trader-id", type=str, help="Specific trader ID to test")
-    parser.add_argument("--simulations", type=int, default=100, help="Number of MCTS simulations to run")
+    parser.add_argument("--simulations", type=int, default=200, help="Number of MCTS simulations to run")
+    parser.add_argument("--db-test", action="store_true", help="Run test with actual database")
     parser.add_argument("--log-level", type=str, default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"], 
                         help="Logging level")
     
     args = parser.parse_args()
     
-    result = test_mcts_trader(args.trader_id, args.simulations, args.log_level)
+    # Set log level
+    logging.getLogger().setLevel(getattr(logging, args.log_level))
     
-    # Print final result as JSON
-    print(json.dumps(result, indent=2, default=str))
+    # Run the async main function
+    asyncio.run(main())

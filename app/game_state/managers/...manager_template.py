@@ -9,6 +9,7 @@ from sqlalchemy import Column, String, Text, Table, MetaData
 from sqlalchemy import select, insert, update, delete
 from sqlalchemy.orm import Session
 from database.connection import get_db
+#from app.models.template import Template  # Replace with your actual model class
 
 # Import your entity class
 # from app.game_state.entities.entity_template import EntityTemplate

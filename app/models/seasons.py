@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text
 from sqlalchemy.dialects.postgresql import JSONB
-from models.core import Base
+from app.models.core import Base
 
 class Seasons(Base):
     """

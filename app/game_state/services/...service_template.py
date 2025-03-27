@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Any
 # Import managers, entities, and other components as needed
 # from app.game_state.managers.some_manager import SomeManager
 # from app.game_state.entities.some_entity import SomeEntity
-# from models.core import SomeModel, AnotherModel
+# from app.models.core import SomeModel, AnotherModel
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
-from workers.celery_app import app
+from app.workers.celery_app import app
 from database.connection import SessionLocal
-from models.core import Traders, Settlements, Worlds, Areas, TravelRoutes, AreaEncounters, AreaEncounterTypes
+from app.models.core import Traders, Settlements, Worlds, Areas, TravelRoutes, AreaEncounters, AreaEncounterTypes
 from app.ai.simple_decision import SimpleDecisionEngine
 from app.game_state.manager import GameStateManager
 from sqlalchemy import String, cast, select, text

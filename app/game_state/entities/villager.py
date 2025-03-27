@@ -1,6 +1,9 @@
 from typing import Optional, Dict, List, Any
 from uuid import UUID
 import logging as logger
+from ....database.connection import SessionLocal
+from app.models.villagers import Villager as VillagerModel
+from sqlalchemy.orm import Session
 
 class Villager:
     """
@@ -41,18 +44,23 @@ class Villager:
         # Internal state tracking
         self._dirty = False
 
-    def set_basic_info(self, name: str, description: Optional[str] = None):
+    def set_basic_info(self, name: str, description: Optional[str] = None, db: Optional[Session] = None):
         """
-        Set basic information about the villager.
-        
+        Set basic information about the villager and optionally save to the database.
+
         Args:
-            name (str): The villager's name
-            description (str, optional): A brief description of the villager
+            name (str): The villager's name.
+            description (str, optional): A brief description of the villager.
+            db (Session, optional): The database session. If provided, changes will be saved to the database.
         """
         self.name = name
         self.description = description or f"A {self.__class__.__name__.lower()} named {name}"
         self._dirty = True
         logger.info(f"Set basic info for {self.__class__.__name__} {self.villager_id}: name={name}")
+
+        # Save to the database if a session is provided
+        if db:
+            self.save_to_db(db)
 
     def set_location(self, location_id: Optional[str], location_type: str = "current"):
         """
@@ -172,6 +180,37 @@ class Villager:
             return True
         return False
         
+    def kill(self):
+        """
+        Kills the villager.
+        Sets status to deceased and removes from the game.
+        """
+        self.status = "deceased"
+        logger.info(f"Killed {self.__class__.__name__} {self.villager_id}")
+        self._dirty = True
+
+    def save_to_db(self, db: Session):
+        """
+        Save the villager to the database.
+
+        Args:
+            db (Session): The database session.
+        """
+        villager_data = self.to_dict()
+        db_villager = db.query(VillagerModel).filter_by(villager_id=self.villager_id).first()
+
+        if db_villager:
+            # Update existing record
+            for key, value in villager_data.items():
+                setattr(db_villager, key, value)
+        else:
+            # Insert new record
+            db_villager = VillagerModel(**villager_data)
+            db.add(db_villager)
+
+        db.commit()
+        self.mark_clean()
+
     # State tracking methods
     def is_dirty(self):
         """Check if this villager has unsaved changes."""
@@ -215,3 +254,4 @@ class Villager:
         villager.tasks = data.get("tasks", [])
         villager.skills = data.get("skills", {})
         return villager
+

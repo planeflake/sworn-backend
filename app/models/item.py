@@ -1,11 +1,13 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 from sqlalchemy.ext.declarative import declarative_base
-from models.core import Base
+from database.connection import Base
 
 class Item(Base):
-    item_id = Column(UUID(as_uuid=True), primary_key=True, server_default=Text("uuid_generate_v4()"))
+    __tablename__ = "items"
+    
+    item_id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
     name = Column(String)
     description = Column(String)
     properties = Column(JSONB)

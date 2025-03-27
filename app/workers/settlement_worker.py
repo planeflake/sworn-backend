@@ -3,11 +3,11 @@ import json
 import uuid
 from datetime import datetime
 
-from workers.celery_app import app
-from workers.shared_worker_utils import get_seasonal_modifiers
+from app.workers.celery_app import app
+from app.workers.shared_worker_utils import get_seasonal_modifiers
 from database.connection import SessionLocal
 
-from models.core import (
+from app.models.core import (
     Settlements,
     SettlementResources,
     ResourceSites,

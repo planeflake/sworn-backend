@@ -15,21 +15,8 @@ class VillagerManager:
     def __init__(self):
         """Initialize the VillagerManager."""
         self.villagers = {}  # Dictionary to store loaded villagers by ID
-        self._setup_db_metadata()
         logger.info("VillagerManager initialized")
-    
-    def _setup_db_metadata(self):
-        """Set up SQLAlchemy metadata for villagers table."""
-        self.metadata = MetaData()
-        self.villagers_table = Table(
-            'villagers', 
-            self.metadata,
-            Column('villager_id', String(36), primary_key=True),
-            Column('name', String(100)),
-            Column('location_id', String(36)),
-            Column('data', Text)
-        )
-    
+
     def create_villager(self, name: str, description: Optional[str] = None) -> Villager:
         """
         Create a new villager with a unique ID.
@@ -345,7 +332,19 @@ class VillagerManager:
         if result:
             return self.save_villager(villager)
         return False
-    
+
+    def kill_villager(self, villager_id: str) -> bool:
+        """
+        Kill
+        """
+        villager = self.load_villager(villager_id)
+        if not villager:
+            logger.warning(f"Cannot kill villager: Villager not found: {villager_id}")
+            return False
+        
+        villager.kill()
+        return self.save_villager(villager)
+
     def save_all_villagers(self) -> bool:
         """
         Save all loaded villagers to the database.
