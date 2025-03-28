@@ -217,8 +217,8 @@ def create_area(name: str, area_type: str, world_id: str,
         if area:
             return {
                 "status": "success",
-                "area_id": area.entity_id,
-                "name": area.name,
+                "area_id": area.area_id,
+                "name": area.area_name,
                 "message": f"Area {name} created successfully"
             }
         else:

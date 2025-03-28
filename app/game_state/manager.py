@@ -261,15 +261,24 @@ class GameStateManager:
         else:
             world_data["size"] = "standard"  # Default size
         
+        # Prepare world data for TraderState
+        world_data_for_state = {
+            "world_id": world_data["world_id"],
+            "current_game_day": world_data["current_game_day"],
+            "name": world_data["name"],
+            "size": world_data["size"],
+            "settlements": {},  # Will populate with settlement data
+            "travel_routes": travel_routes,
+            "resource_prices": resource_prices
+        }
+        
+        # Add settlements to world data
+        for settlement in settlements_data:
+            settlement_id = settlement["settlement_id"]
+            world_data_for_state["settlements"][settlement_id] = settlement
+        
         # Create TraderState for MCTS
-        state = TraderState(
-            trader_data,
-            world_data,
-            settlements_data,
-            travel_routes,
-            resource_prices,
-            self.db  # Pass db session for any additional data needed
-        )
+        state = TraderState(trader_data, world_data_for_state)
         
         # Pre-check legal actions
         logger.info(f"MCTS TRACE: Initializing TraderState with {len(settlements_data)} settlements and {len(travel_routes)} routes")

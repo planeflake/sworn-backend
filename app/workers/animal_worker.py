@@ -2,7 +2,7 @@
 from app.workers.celery_app import app
 from app.game_state.services.animal_service import AnimalService
 from sqlalchemy.orm import Session
-from database.connection import get_db
+from database.connection import SessionLocal
 import logging
 from datetime import datetime
 
@@ -22,8 +22,8 @@ def update_animal_state(animal_id: str):
     logger.info(f"Updating animal state for {animal_id}")
     
     try:
-        db = get_db()
-        with Session(db) as session:
+        session = SessionLocal()
+        try:
             # Create service with DB session
             animal_service = AnimalService(session)
             
@@ -32,6 +32,8 @@ def update_animal_state(animal_id: str):
             
             logger.info(f"Animal state updated for {animal_id}: {result}")
             return result
+        finally:
+            session.close()
             
     except Exception as e:
         logger.exception(f"Error updating animal state for {animal_id}: {e}")
@@ -51,8 +53,8 @@ def process_all_animals(world_id: str = None):
     logger.info(f"Processing all animals" + (f" in world {world_id}" if world_id else ""))
     
     try:
-        db = get_db()
-        with Session(db) as session:
+        session = SessionLocal()
+        try:
             # Create service with DB session
             animal_service = AnimalService(session)
             
@@ -61,6 +63,8 @@ def process_all_animals(world_id: str = None):
             
             logger.info(f"All animals processed: {result}")
             return result
+        finally:
+            session.close()
             
     except Exception as e:
         logger.exception(f"Error processing all animals: {e}")
@@ -113,8 +117,8 @@ def spawn_animals(area_id: str, animal_type: str = None, count: int = 1):
     logger.info(f"Spawning {count} {animal_type or 'random'} animals in area {area_id}")
     
     try:
-        db = get_db()
-        with Session(db) as session:
+        session = SessionLocal()
+        try:
             # Create service with DB session
             animal_service = AnimalService(session)
             
@@ -123,6 +127,8 @@ def spawn_animals(area_id: str, animal_type: str = None, count: int = 1):
             
             logger.info(f"Animals spawned in area {area_id}: {result}")
             return result
+        finally:
+            session.close()
             
     except Exception as e:
         logger.exception(f"Error spawning animals in area {area_id}: {e}")
@@ -131,8 +137,8 @@ def spawn_animals(area_id: str, animal_type: str = None, count: int = 1):
 def _get_current_season(world_id: str = None):
     """Helper function to get current season from world settings"""
     try:
-        db = get_db()
-        with Session(db) as session:
+        session = SessionLocal()
+        try:
             # In a real implementation, you would get this from the world state
             # For now, just return a placeholder based on the current month
             month = datetime.now().month
@@ -144,6 +150,8 @@ def _get_current_season(world_id: str = None):
                 return "summer"
             else:
                 return "fall"
+        finally:
+            session.close()
     except Exception:
         # Default to current month-based season if there's an error
         month = datetime.now().month

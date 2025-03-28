@@ -24,10 +24,16 @@ class ItemManager:
     Each entity type should have its own manager class.
     """
     
-    def __init__(self):
-        """Initialize the manager."""
+    def __init__(self, db=None):
+        """
+        Initialize the manager.
+        
+        Args:
+            db: Database session (optional)
+        """
         # Cache of loaded entities
         self.entities = {}  # Dictionary to store loaded entities by ID
+        self.db = db
         
         logger.info(f"{self.__class__.__name__} initialized")
     

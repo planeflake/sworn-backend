@@ -88,7 +88,7 @@ class AnimalState:
     including information about the animal, the world, and available actions.
     """
     
-    def __init__(self, animal_data: Dict[str, Any], world_data: Optional[Dict[str, Any]] = None):
+    def __init__(self, animal_data: Dict[str, Any] = None, world_data: Optional[Dict[str, Any]] = None):
         """
         Initialize animal state.
         
@@ -96,18 +96,18 @@ class AnimalState:
             animal_data: Dictionary with animal entity properties
             world_data: Dictionary with world state information
         """
-        self.animal_data = animal_data
+        self.animal_data = animal_data or {}
         self.world_data = world_data or {}
         self._legal_actions = None
         
         # Cache frequently used values for performance
-        self.area_id = animal_data.get("area_id")
-        self.territory = animal_data.get("territory", [])
-        self.resources = animal_data.get("resources", {})
-        self.diet = animal_data.get("diet", [])
-        self.behaviors = animal_data.get("behaviors", [])
-        self.energy = animal_data.get("energy", 100)
-        self.health = animal_data.get("health", 100)
+        self.area_id = self.animal_data.get("area_id")
+        self.territory = self.animal_data.get("territory", [])
+        self.resources = self.animal_data.get("resources", {})
+        self.diet = self.animal_data.get("diet", [])
+        self.behaviors = self.animal_data.get("behaviors", [])
+        self.energy = self.animal_data.get("energy", 100)
+        self.health = self.animal_data.get("health", 100)
         
     def get_legal_actions(self) -> List[AnimalAction]:
         """

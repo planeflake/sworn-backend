@@ -12,7 +12,7 @@ from app.schemas.trader import (
 )
 from app.game_state.managers.trader_manager import TraderManager
 from app.game_state.entities.trader import Trader as TraderEntity
-from app.workers.trader_worker_new import process_trader_movement, process_all_traders
+from app.workers.trader_worker import process_trader_movement, process_all_traders
 
 router = APIRouter(prefix="/traders", tags=["traders"])
 

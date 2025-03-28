@@ -80,7 +80,7 @@ class AreaService:
             
             # Save area
             if self.area_manager.save_entity(area):
-                logger.info(f"Created new area: {name} (ID: {area.entity_id})")
+                logger.info(f"Created new area: {name} (ID: {area.area_id})")
                 return area
             else:
                 logger.error(f"Failed to save new area {name}")
@@ -131,7 +131,7 @@ class AreaService:
                 logger.error(f"Failed to save area {connected_area_id} after connecting")
                 return False
             
-            logger.info(f"Connected areas {area.name} and {connected_area.name}")
+            logger.info(f"Connected areas {area.area_name} and {connected_area.area_name}")
             return True
             
         except Exception as e:
@@ -167,7 +167,7 @@ class AreaService:
                 logger.error(f"Failed to save area {area_id} after connecting to settlement")
                 return False
             
-            logger.info(f"Connected area {area.name} to settlement {settlement_id}")
+            logger.info(f"Connected area {area.area_name} to settlement {settlement_id}")
             return True
             
         except Exception as e:
@@ -199,7 +199,7 @@ class AreaService:
             encounter_roll = random.random()
             if encounter_roll > encounter_chance:
                 # No encounter this time
-                logger.info(f"No encounter generated in area {area.name}")
+                logger.info(f"No encounter generated in area {area.area_name}")
                 return {"status": "success", "result": "no_encounter"}
             
             # Get available encounter types
@@ -237,7 +237,7 @@ class AreaService:
                 is_completed=False,
                 current_state="initial",
                 created_at=datetime.now(),
-                custom_narrative=f"Encounter in {area.name}: {selected_encounter.encounter_name}"
+                custom_narrative=f"Encounter in {area.area_name}: {selected_encounter.encounter_name}"
             )
             
             # Add entity information if provided
@@ -248,7 +248,7 @@ class AreaService:
             self.db.add(encounter)
             self.db.commit()
             
-            logger.info(f"Generated {selected_encounter.encounter_name} encounter in {area.name}")
+            logger.info(f"Generated {selected_encounter.encounter_name} encounter in {area.area_name}")
             
             return {
                 "status": "success", 
@@ -379,7 +379,7 @@ class AreaService:
             return {
                 "status": "success",
                 "area_id": area_id,
-                "area_name": area.name,
+                "area_name": area.area_name,
                 "resource_sites": site_data,
                 "count": len(site_data)
             }
@@ -414,11 +414,11 @@ class AreaService:
             
             # Save changes
             if self.area_manager.save_entity(area):
-                logger.info(f"Updated danger level for area {area.name} to {new_danger_level}")
+                logger.info(f"Updated danger level for area {area.area_name} to {new_danger_level}")
                 return {
                     "status": "success",
                     "area_id": area_id,
-                    "area_name": area.name,
+                    "area_name": area.area_name,
                     "old_danger_level": area.get_property("danger_level", 1),
                     "new_danger_level": new_danger_level
                 }

@@ -47,7 +47,7 @@ class AnimalService:
         self.db = db
         self.manager = AnimalManager(db)
         self.decision_maker = AnimalDecisionMaker(db)
-        self.state = AnimalState(db)
+        self.state = AnimalState()  # Initialize with empty data
 
         # Initialize managers and other components here
         # self.some_manager = SomeManager()

@@ -9,6 +9,8 @@ from app.game_state.decision_makers.item_decision_maker import ItemDecisionMaker
 from app.ai.mcts.states.item_state import ItemState
 from app.models.item import Item
 
+from database.connection import SessionLocal, get_db
+
 logger = logging.getLogger(__name__)
 
 class ItemService:
@@ -32,21 +34,25 @@ class ItemService:
     - Orchestrating item durability.
     - Handling encounters or interactions between items.
     """
-    def __init__(self, item_manager, player_manager, world_manager):
+    def __init__(self, db, player_manager=None, world_manager=None, item_data=None):
         """
         Initialize the service with a database session.
         
         Args:
-            db (Session): SQLAlchemy database session
+            db: Database session.
+            player_manager: Manager for player-related operations.
+            world_manager: Manager for world-related operations.
+            item_data: Data required to initialize ItemState.
         """
-        self.item_manager = item_manager
+        self.db = db
+        self.item_manager = ItemManager(db)
         self.player_manager = player_manager
         self.world_manager = world_manager
-        self.decision_maker = ItemDecisionMaker()
-        self.state = ItemState()
+        self.decision_maker = ItemDecisionMaker(SessionLocal)
+        self.state = ItemState(item_data=item_data or {})
     
     def _load_item_or_error(self, item_id: str) -> Optional[Item]:
-        item = self.manager.load_item(item_id)
+        item = self.item_manager.load_item(item_id)
         if not item:
             logger.warning(f"Item not found: {item_id}")
             return None
@@ -68,7 +74,7 @@ class ItemService:
                 return {"status": "error", "message": "Item not found"}
             
             # Process durability
-            result = self.manager.process_item_durability(item)
+            result = self.item_manager.process_item_durability(item)
             return result
         
         except Exception as e:
@@ -86,8 +92,8 @@ class ItemService:
         logger.info(f"Changing owner of item {item_id} to {new_owner_id}")
         
         def item_and_owner_exists(item_id: str, owner_id: str) -> bool:
-            item = self.manager.load_item(item_id)
-            owner = self.manager.load_owner(owner_id)
+            item = self.item_manager.load_item(item_id)
+            owner = self.item_manager.load_owner(owner_id)
             return item is None or owner is None
 
         try:
@@ -101,7 +107,7 @@ class ItemService:
             
 
             # Change the owner
-            result = self.manager.change_item_owner(item, new_owner_id)
+            result = self.item_manager.change_item_owner(item, new_owner_id)
             return result
         
         except Exception as e:
@@ -121,7 +127,7 @@ class ItemService:
         logger.info(f"Initializing world with {count} random equipment items")
         
         try:
-            equipment_list = self.manager.generate_random_equipment(count)
+            equipment_list = self.item_manager.generate_random_equipment(count)
             return {
                 "status": "success",
                 "message": f"Initialized {len(equipment_list)} equipment items",
@@ -145,7 +151,7 @@ class ItemService:
         logger.info(f"Creating new item: {item_data}")
         
         try:
-            item = self.manager.create_item(item_data)
+            item = self.item_manager.create_item(item_data)
             if item:
                 return {"status": "success", "message": "Item created", "item_id": item.item_id}
             else:
@@ -168,7 +174,7 @@ class ItemService:
         logger.info(f"Deleting item: {item_id}")
         
         try:
-            result = self.manager.delete_item(item_id)
+            result = self.item_manager.delete_item(item_id)
             if result:
                 return {"status": "success", "message": "Item deleted"}
             else:
@@ -200,7 +206,7 @@ class ItemService:
                 return {"status": "error", "message": "Item is already broken"}
             
             state.apply_action({"type": "repair"})
-            self.manager.save_entity(item)
+            self.item_manager.save_entity(item)
             return {"status": "success", "message": "Item broken"}
         
         except Exception as e:
@@ -221,7 +227,7 @@ class ItemService:
         logger.info(f"Stealing item {item_id} by thief {thief_id}")
         
         try:
-            result = self.manager.steal_item(item_id, thief_id)
+            result = self.item_manager.steal_item(item_id, thief_id)
             return result
         
         except Exception as e:
@@ -242,7 +248,7 @@ class ItemService:
         logger.info(f"Attempting to steal item {item_id} by thief {thief_id}")
         
         try:
-            result = self.manager.attempt_to_steal_item(item_id, thief_id)
+            result = self.item_manager.attempt_to_steal_item(item_id, thief_id)
             return result
         
         except Exception as e:
@@ -354,3 +360,31 @@ class ItemService:
     def generate_treasure(self, chest_tier, area_level):
         """Generate treasure items for chests based on tier and area level"""
         return self.item_manager.generate_treasure(chest_tier, area_level)
+        
+    def process_all_items(self, world_id: str = None) -> Dict[str, Any]:
+        """Process all items in the world, handling durability, effects, etc.
+        
+        Args:
+            world_id: Optional world ID to filter by
+            
+        Returns:
+            Dict with processing results
+        """
+        logger.info(f"Processing all items" + (f" in world {world_id}" if world_id else ""))
+        
+        try:
+            # Logic for processing all items would go here
+            # For now, return a placeholder success message
+            return {
+                "status": "success",
+                "message": "All items processed",
+                "processed": 0,
+                "results": []
+            }
+            
+        except Exception as e:
+            logger.exception(f"Error processing all items: {e}")
+            return {
+                "status": "error",
+                "message": str(e)
+            }

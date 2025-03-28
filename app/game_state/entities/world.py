@@ -73,6 +73,15 @@ class World:
         # State tracking
         self._dirty = False
     
+    def is_active(self) -> bool:
+        """
+        Check if this world is currently active.
+        
+        Returns:
+            bool: True if the world is active
+        """
+        return self.active
+
     def set_basic_info(self, name: str, description: Optional[str] = None, theme_id: Optional[str] = None):
         """
         Set basic information about the world.

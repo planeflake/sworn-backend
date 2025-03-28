@@ -19,10 +19,10 @@ class AnimalDB(BaseModel):
     data: str  # JSON string of animal (Wildlife) data
 
 class AnimalManager:
-    def __init__(self):
+    def __init__(self,db):
         """Initialize the AnimalManager."""
         self.animals = {}  # Cache for loaded animals keyed by animal_id
-        self._setup_db_metadata()
+        self.db = db
         logger.info("AnimalManager initialized")
     
     def _setup_db_metadata(self):

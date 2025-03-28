@@ -1,9 +1,11 @@
 from celery import shared_task
 from app.game_state.services.item_service import ItemService
 from sqlalchemy.orm import Session
-from database.connection import get_db
+from database.connection import SessionLocal
 import logging
 from datetime import datetime
+from app.game_state.managers.player_manager import PlayerManager
+from app.game_state.managers.world_manager import WorldManager
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +23,8 @@ def update_item_state(animal_id: str):
     logger.info(f"Updating animal state for {animal_id}")
     
     try:
-        db = get_db()
-        with Session(db) as session:
+        session = SessionLocal()
+        try:
             # Create service with DB session
             animal_service = AnimalService(session)
             
@@ -31,13 +33,15 @@ def update_item_state(animal_id: str):
             
             logger.info(f"Animal state updated for {animal_id}: {result}")
             return result
+        finally:
+            session.close()
             
     except Exception as e:
         logger.exception(f"Error updating animal state for {animal_id}: {e}")
         return {"status": "error", "message": str(e)}
 
-@shared_task(name="animal_worker.process_all_items")
-def process_all_animals(world_id: str = None):
+@shared_task(name="app.workers.item_worker_new.process_all_items")
+def process_all_items(world_id: str = None):
     """
     Process all animals in the world, handling movement, hunger, health, etc.
     
@@ -47,22 +51,24 @@ def process_all_animals(world_id: str = None):
     Returns:
         dict: Result of processing all animals
     """
-    logger.info(f"Processing all animals" + (f" in world {world_id}" if world_id else ""))
+    logger.info(f"Processing all items" + (f" in world {world_id}" if world_id else ""))
     
     try:
-        db = get_db()
-        with Session(db) as session:
+        session = SessionLocal()
+        try:
             # Create service with DB session
-            animal_service = AnimalService(session)
+            item_service = ItemService(db=session)
             
-            # Process all animals
-            result = animal_service.process_all_animals(world_id)
+            # Process all items
+            result = item_service.process_all_items(world_id)
             
-            logger.info(f"All animals processed: {result}")
+            logger.info(f"All items processed: {result}")
             return result
+        finally:
+            session.close()
             
     except Exception as e:
-        logger.exception(f"Error processing all animals: {e}")
+        logger.exception(f"Error processing all items: {e}")
         return {"status": "error", "message": str(e)}
 
 @shared_task(name="animal_worker.create_items")

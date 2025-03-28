@@ -250,7 +250,7 @@ class TaskService:
         tasks = await self.task_manager.get_tasks_by_target(trader_id)
         return [task.to_dict() for task in tasks]
     
-    async def check_expired_tasks(self) -> Dict[str, Any]:
+    def check_expired_tasks(self) -> Dict[str, Any]:
         """
         Check for expired tasks and mark them as failed.
         This would typically be called by a Celery worker on a schedule.

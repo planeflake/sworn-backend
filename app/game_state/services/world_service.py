@@ -425,7 +425,7 @@ class WorldService:
         """
         try:
             # Query all active worlds
-            worlds = self.db.query(Worlds).filter(Worlds.is_active == True).all()
+            worlds = self.db.query(Worlds).filter(Worlds.active == True).all()
             
             processed_count = 0
             results = []

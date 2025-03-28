@@ -24,8 +24,8 @@ class Settlement:
             name (str, optional): The settlement's name
             description (str, optional): A brief description of the settlement
         """
-        self.id = settlement_id
-        self.name = name
+        self.settlement_id = settlement_id
+        self.settlement_name = name
         self.description = description or (f"A settlement named {name}" if name else None)
         self.location_id = None
         self.relations = {}
@@ -40,11 +40,11 @@ class Settlement:
         self.get_required_services = []
         
         # Additional custom properties (for compatibility)
-        self._properties = {}
+        self._properties = {}  # Ensure this is not None
         self._is_dirty = False
     
     def __repr__(self) -> str:
-        return f"Settlement(id={self.id}, name='{self.name}')"
+        return f"Settlement(id={self.settlement_id}, name='{self.settlement_name}')"
     
     def __str__(self) -> str:
         status = []
@@ -56,7 +56,7 @@ class Settlement:
             status.append("built")
         
         status_str = ", ".join(status) if status else "normal"
-        return f"{self.name} (Settlement, {status_str})"
+        return f"{self.settlement_name} (Settlement, {status_str})"
     
     def get_hidden_resources(self) -> List[str]:
         """
@@ -78,7 +78,7 @@ class Settlement:
         added_resources = []
         for resource in resources:
             if resource not in self.get_hidden_resources():
-                logger.info(f"Resource {resource} added to Settlement {self.id}")
+                logger.info(f"Resource {resource} added to Settlement {self.settlement_id}")
                 added_resources.append(resource)
                 # Assuming there's a method to actually add the resource
                 self.add_hidden_resource(resource)  # Example method call
@@ -95,7 +95,7 @@ class Settlement:
         removed_resources = []
         for resource in resources:
             if resource in self.get_hidden_resources():
-                logger.info(f"Resource {resource} removed from Settlement {self.id}")
+                logger.info(f"Resource {resource} removed from Settlement {self.settlement_id}")
                 removed_resources.append(resource)
                 # Assuming there's a method to actually remove the resource
                 self.remove_hidden_resource(resource)
@@ -122,10 +122,10 @@ class Settlement:
             name (str): The settlement's name
             description (str, optional): A brief description of the settlement
         """
-        self.name = name
+        self.settlement_name = name
         self.description = description or f"A settlement named {name}"
         self._mark_dirty()
-        logger.info(f"Set basic info for Settlement {self.id}: name={name}")
+        logger.info(f"Set basic info for Settlement {self.settlement_id}: name={name}")
     
     def get_required_services(self) -> List[str]:
         """
@@ -146,7 +146,7 @@ class Settlement:
         """
         self.location_id = location_id
         self._mark_dirty()
-        logger.info(f"Set location for Settlement {self.id} to {location_id}")
+        logger.info(f"Set location for Settlement {self.settlement_id} to {location_id}")
     
     def set_relation(self, entity_id: str, relation_type: str, value: Any = None):
         """
@@ -162,7 +162,7 @@ class Settlement:
         
         self.relations[entity_id][relation_type] = value
         self._mark_dirty()
-        logger.info(f"Set relation {relation_type} to entity {entity_id} for Settlement {self.id}")
+        logger.info(f"Set relation {relation_type} to entity {entity_id} for Settlement {self.settlement_id}")
     
     def get_relation(self, entity_id: str, relation_type: str, default: Any = None) -> Any:
         """
@@ -214,7 +214,7 @@ class Settlement:
         """
         self.is_repairable = is_repairable
         self._mark_dirty()
-        logger.info(f"Set is_repairable={is_repairable} for Settlement {self.id}")
+        logger.info(f"Set is_repairable={is_repairable} for Settlement {self.settlement_id}")
     
     def set_is_damaged(self, is_damaged: bool):
         """
@@ -225,7 +225,7 @@ class Settlement:
         """
         self.is_damaged = is_damaged
         self._mark_dirty()
-        logger.info(f"Set is_damaged={is_damaged} for Settlement {self.id}")
+        logger.info(f"Set is_damaged={is_damaged} for Settlement {self.settlement_id}")
     
     def set_has_started_building(self, has_started_building: bool):
         """
@@ -236,7 +236,7 @@ class Settlement:
         """
         self.has_started_building = has_started_building
         self._mark_dirty()
-        logger.info(f"Set has_started_building={has_started_building} for Settlement {self.id}")
+        logger.info(f"Set has_started_building={has_started_building} for Settlement {self.settlement_id}")
     
     def set_is_under_repair(self, is_under_repair: bool):
         """
@@ -247,7 +247,7 @@ class Settlement:
         """
         self.is_under_repair = is_under_repair
         self._mark_dirty()
-        logger.info(f"Set is_under_repair={is_under_repair} for Settlement {self.id}")
+        logger.info(f"Set is_under_repair={is_under_repair} for Settlement {self.settlement_id}")
     
     def set_is_built(self, is_built: bool):
         """
@@ -258,7 +258,7 @@ class Settlement:
         """
         self.is_built = is_built
         self._mark_dirty()
-        logger.info(f"Set is_built={is_built} for Settlement {self.id}")
+        logger.info(f"Set is_built={is_built} for Settlement {self.settlement_id}")
     
     # State tracking methods
     def _mark_dirty(self):
@@ -288,8 +288,8 @@ class Settlement:
             Dict[str, Any]: Dictionary representation of this entity
         """
         return {
-            "id": self.id,
-            "name": self.name,
+            "id": self.settlement_id,
+            "name": self.settlement_name,
             "description": self.description,
             "location_id": self.location_id,
             "relations": self.relations,
@@ -313,7 +313,7 @@ class Settlement:
             Settlement: New settlement instance
         """
         settlement = cls(settlement_id=data["id"])
-        settlement.name = data.get("name")
+        settlement.settlement_name = data.get("name")
         settlement.description = data.get("description")
         settlement.location_id = data.get("location_id")
         settlement.relations = data.get("relations", {})

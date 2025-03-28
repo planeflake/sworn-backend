@@ -151,7 +151,7 @@ def advance_time_for_all_worlds(days: int = 1):
     try:
         # Get all active worlds
         from app.models.core import Worlds
-        worlds = db.query(Worlds).filter(Worlds.is_active == True).all()
+        worlds = db.query(Worlds).filter(Worlds.active == True).all()
         
         results = []
         for world in worlds:

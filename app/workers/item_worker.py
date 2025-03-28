@@ -3,6 +3,7 @@ from app.workers.celery_app import app
 from database.connection import SessionLocal, get_db
 import logging
 from typing import Dict, List, Optional, Any
+from sqlalchemy.orm import Session
 
 # Import the service that contains the actual implementation
 from app.game_state.services.item_service import ItemService
@@ -14,10 +15,12 @@ logger = logging.getLogger(__name__)
 
 def get_services():
     """Get the services needed for item operations"""
-    item_manager = ItemManager()
-    player_manager = PlayerManager()
-    world_manager = WorldManager()
-    return ItemService(item_manager, player_manager, world_manager)
+    db = get_db()
+    with Session(db) as session:
+        item_manager = ItemManager(session)
+        player_manager = PlayerManager(session)
+        world_manager = WorldManager(session)
+        return ItemService(item_manager, player_manager, world_manager)
 
 @app.task
 def process_item_durability(item_id: str):
