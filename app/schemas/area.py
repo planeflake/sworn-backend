@@ -30,7 +30,7 @@ class AreaResponse(AreaBase, TimeStampModel):
     connected_areas: List[UUID4] = []
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 class EncounterTypeBase(BaseModel):
     encounter_code: str = Field(..., min_length=3, max_length=50)
@@ -47,7 +47,7 @@ class EncounterTypeResponse(EncounterTypeBase, TimeStampModel):
     possible_outcomes: List[UUID4] = []
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 class EncounterOutcomeBase(BaseModel):
     outcome_code: str = Field(..., min_length=3, max_length=50)
@@ -64,7 +64,7 @@ class EncounterOutcomeResponse(EncounterOutcomeBase):
     encounter_type_id: UUID4
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 class ActiveEncounterResponse(BaseModel):
     encounter_id: UUID4
@@ -78,7 +78,7 @@ class ActiveEncounterResponse(BaseModel):
     possible_outcomes: List[EncounterOutcomeResponse] = []
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 class EncounterResolveRequest(BaseModel):
     character_id: Optional[UUID4] = None
@@ -94,7 +94,7 @@ class EncounterResolveResponse(BaseModel):
     penalties: Dict[str, Any] = {}
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 class TravelRequest(BaseModel):
     character_id: Optional[UUID4] = None
@@ -112,7 +112,7 @@ class TravelResponse(BaseModel):
     message: str
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 class RouteResponse(BaseModel):
     route_id: UUID4
@@ -127,4 +127,4 @@ class RouteResponse(BaseModel):
     travel_time: int
 
     class Config:
-        orm_mode = True
+        has_attributes = True

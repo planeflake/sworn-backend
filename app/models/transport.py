@@ -21,7 +21,7 @@ class Biome(BiomeBase):
     biome_id: int
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 # Weather Models
 class WeatherBase(BaseModel):
@@ -45,7 +45,7 @@ class Weather(WeatherBase):
     weather_id: int
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 # Transport Method Models
 class TransportMethodBase(BaseModel):
@@ -70,7 +70,7 @@ class TransportMethod(TransportMethodBase):
     transport_id: int
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 # Road Type Models
 class RoadTypeBase(BaseModel):
@@ -88,7 +88,7 @@ class RoadType(RoadTypeBase):
     road_type_id: int
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 # Area Road Models
 class AreaRoadBase(BaseModel):
@@ -115,7 +115,7 @@ class AreaRoad(AreaRoadBase):
     area_road_id: int
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 # Season Models (based on your existing seasons table)
 class SeasonBase(BaseModel):
@@ -134,7 +134,7 @@ class Season(SeasonBase):
     season_id: int
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 # Combined models for movement calculation
 class MovementFactors(BaseModel):

@@ -19,7 +19,7 @@ class PlayerResponse(PlayerBase, TimeStampModel):
     last_login: Optional[datetime] = None
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 class CharacterBase(BaseModel):
     character_name: str = Field(..., min_length=2, max_length=50)
@@ -36,7 +36,7 @@ class CharacterResponse(CharacterBase, TimeStampModel):
     energy: int = 100
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 class ResourceItemBase(BaseModel):
     resource_type_id: UUID4
@@ -51,7 +51,7 @@ class InventoryResponse(ResourceItemBase, TimeStampModel):
     resource_name: str  # This would be joined from resource_types
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 class SkillBase(BaseModel):
     skill_type_id: UUID4
@@ -67,7 +67,7 @@ class SkillResponse(SkillBase, TimeStampModel):
     skill_name: str  # This would be joined from skill_types
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 class GatherResourceRequest(BaseModel):
     quantity: Optional[int] = 1

@@ -10,4 +10,4 @@ class TimeStampModel(BaseModel):
     last_updated: Optional[datetime] = None
 
     class Config:
-        orm_mode = True
+        has_attributes = True

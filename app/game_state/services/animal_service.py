@@ -316,3 +316,20 @@ class AnimalService:
         except Exception as e:
             logger.exception(f"Error processing prey hiding: {e}")
             return {"status": "error", "message": f"Error: {str(e)}"}
+        
+    def migrate_animals(self) -> Dict[str, Any]:
+        """
+        Migrate animals between areas based on migration rules.
+
+        Returns:
+            Dict[str, Any]: Summary of the migration process.
+        """
+        logger.info("Migrating animals between areas")
+        
+        try:
+            self.manager.migrate_animals()
+            return {"status": "success", "message": "Migrated animals between areas"}
+        
+        except Exception as e:
+            logger.exception(f"Error migrating animals: {e}")
+            return {"status": "error", "message": f"Error: {str(e)}"}

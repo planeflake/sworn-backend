@@ -398,6 +398,23 @@ class TaskManager:
             task_record.progress = 100.0
             task_record.completion_time = datetime.utcnow()
             
+            # Check if this task is associated with a trader
+            if task_record.target_id:
+                try:
+                    # Check if target is a trader
+                    from app.models.trader import TraderModel
+                    trader = self.db.query(TraderModel).filter(
+                        TraderModel.trader_id == task_record.target_id
+                    ).first()
+                    
+                    if trader and trader.active_task_id == str(task_record.task_id):
+                        # Clear the trader's active_task_id and allow movement again
+                        logger.info(f"Clearing active_task_id for trader {trader.trader_id} as task {task_record.task_id} is completed")
+                        trader.active_task_id = None
+                        trader.can_move = True
+                except Exception as e:
+                    logger.warning(f"Error updating trader after task completion: {e}")
+            
             self.db.commit()
             
             return {
@@ -441,6 +458,23 @@ class TaskManager:
                 **task_record.task_data,
                 "failure_reason": reason
             }
+            
+            # Check if this task is associated with a trader
+            if task_record.target_id:
+                try:
+                    # Check if target is a trader
+                    from app.models.trader import TraderModel
+                    trader = self.db.query(TraderModel).filter(
+                        TraderModel.trader_id == task_record.target_id
+                    ).first()
+                    
+                    if trader and trader.active_task_id == str(task_record.task_id):
+                        # Clear the trader's active_task_id and allow movement again
+                        logger.info(f"Clearing active_task_id for trader {trader.trader_id} as task {task_record.task_id} failed")
+                        trader.active_task_id = None
+                        trader.can_move = True
+                except Exception as e:
+                    logger.warning(f"Error updating trader after task failure: {e}")
             
             self.db.commit()
             return True

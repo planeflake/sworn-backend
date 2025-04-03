@@ -352,6 +352,17 @@ class AnimalManager:
         logger.info(f"Initialized {len(animals_list)} random animals")
         return animals_list
 
+    def migrate_animals(self):
+        """
+        Migrate animals to new locations.
+        This method could be used to simulate animal movement across the world.
+        """
+        all_animals = self.get_all_animals()
+        for animal in all_animals:
+            new_location = random.choice(["forest", "plains", "mountains", "river"])
+            self.update_animal_location(animal.wildlife_id, new_location)
+        logger.info("Migrated animals to new locations")
+
     def get_animal_count(self) -> int:
         """
         Get the total number of animals.

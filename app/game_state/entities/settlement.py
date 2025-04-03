@@ -1,7 +1,8 @@
-import logging
+import logging as logger
 from typing import List, Dict, Optional, Any
 
-logger = logging.getLogger(__name__)
+
+logger = logger.getLogger(__name__)
 
 class Settlement:
     """
@@ -260,6 +261,94 @@ class Settlement:
         self._mark_dirty()
         logger.info(f"Set is_built={is_built} for Settlement {self.settlement_id}")
     
+    def get_buildings(self):
+        """Get all buildings in this settlement."""
+        return self.get_property("buildings", [])
+
+    def add_building(self, building_data):
+        """Add a new building to the settlement."""
+        buildings = self.get_buildings()
+        buildings.append(building_data)
+        self.set_property("buildings", buildings)
+        self._mark_dirty()
+
+    def get_resources(self):
+        """Get all resources in this settlement."""
+        return self.get_property("resources", {})
+
+    def add_resource(self, resource_type, amount):
+        """Add resources to the settlement."""
+        resources = self.get_resources()
+        resources[resource_type] = resources.get(resource_type, 0) + amount
+        self.set_property("resources", resources)
+        self._mark_dirty()
+
+    def get_buildings_under_construction(self):
+        """Get all buildings that are currently under construction."""
+        return [b for b in self.get_buildings() if b["construction_status"] == 'in_progress']
+    
+    def get_operational_buildings(self):
+        """Get all buildings that are operational."""
+        return [b for b in self.get_buildings() if b["is_operational"]]
+    
+    def get_buildings_by_type(self, building_type):
+        """Get all buildings of a specific type."""
+        return [b for b in self.get_buildings() if b["type"] == building_type]
+    
+    def get_damaged_buildings(self):
+        """Get all buildings that are damaged."""
+        return [b for b in self.get_buildings() if b.get("health", 100) < 100]
+    
+    def update_building(self, building_id, updates):
+        """
+        Update a specific building with the provided updates.
+        
+        Args:
+            building_id (str): ID of the building to update
+            updates (dict): Dictionary of updates to apply
+            
+        Returns:
+            bool: True if the building was found and updated
+        """
+        buildings = self.get_buildings()
+        for i, building in enumerate(buildings):
+            if building["building_id"] == building_id:
+                buildings[i].update(updates)
+                self.set_property("buildings", buildings)
+                self._mark_dirty()
+                return True
+        return False
+    
+    def update_buildings(self, updated_buildings):
+        """
+        Update multiple buildings at once.
+        
+        Args:
+            updated_buildings (list): List of building data to update
+            
+        Returns:
+            int: Number of buildings updated
+        """
+        buildings = self.get_buildings()
+        updated_count = 0
+        
+        # Create a map of existing buildings by ID
+        buildings_map = {b["building_id"]: i for i, b in enumerate(buildings)}
+        
+        # Update each building
+        for updated_building in updated_buildings:
+            building_id = updated_building["building_id"]
+            if building_id in buildings_map:
+                index = buildings_map[building_id]
+                buildings[index] = updated_building
+                updated_count += 1
+        
+        # Save the updated buildings
+        self.set_property("buildings", buildings)
+        self._mark_dirty()
+        
+        return updated_count
+
     # State tracking methods
     def _mark_dirty(self):
         """Mark this entity as having unsaved changes."""
@@ -287,18 +376,38 @@ class Settlement:
         Returns:
             Dict[str, Any]: Dictionary representation of this entity
         """
+        # Convert any UUIDs to strings in properties
+        import uuid
+        
+        def convert_uuids(obj):
+            """Recursively convert UUIDs to strings in nested structures"""
+            if isinstance(obj, uuid.UUID):
+                return str(obj)
+            elif isinstance(obj, dict):
+                return {k: convert_uuids(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_uuids(item) for item in obj]
+            else:
+                return obj
+        
+        # Process all properties
+        properties = convert_uuids(self._properties)
+                
+        # Also convert any UUIDs in relations
+        relations = convert_uuids(self.relations)
+        
         return {
             "id": self.settlement_id,
             "name": self.settlement_name,
             "description": self.description,
             "location_id": self.location_id,
-            "relations": self.relations,
+            "relations": relations,
             "is_repairable": self.is_repairable,
             "is_damaged": self.is_damaged,
             "has_started_building": self.has_started_building,
             "is_under_repair": self.is_under_repair, 
             "is_built": self.is_built,
-            "properties": self._properties
+            "properties": properties
         }
     
     @classmethod

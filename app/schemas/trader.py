@@ -30,11 +30,11 @@ class TraderResponse(TraderBase, TimeStampModel):
     personality: Dict[str, Any] = {}
     biome_preferences: Dict[str, float] = {}
     cart_upgrades: List[str] = []
-    schedule: Dict[str, Any] = {}
+    schedule: Optional[Dict] = {}
     npc_name: str  # This would be joined from npcs
 
     class Config:
-        orm_mode = True
+        has_attributes = True
         
 class TraderUpdate(BaseModel):
     npc_name: Optional[str] = None
@@ -70,7 +70,7 @@ class TraderInventoryResponse(TraderInventoryBase, TimeStampModel):
     effective_price: float  # Calculated field = base_price * price_modifier
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 class TradeItemRequest(BaseModel):
     resource_type_id: UUID4

@@ -7,12 +7,16 @@ from database.connection import get_db
 import logging
 import json
 import uuid
+from datetime import datetime
+from typing import List, Dict, Set, Optional, Any, Callable
 
-# Import the Resource entity and its enums
 from app.game_state.entities.resource import (
     Resource, ResourceType, ResourceRarity, ResourceQuality, 
     MaterialState, ElementalAffinity, UsageCategory
 )
+from database.connection import SessionLocal
+from app.game_state.services.logging_service import LoggingService
+from app.models.core import ResourceSites as ResourceSite, ResourceSiteTypes as SiteType
 
 logger = logging.getLogger(__name__)
 
@@ -28,16 +32,17 @@ class ResourceManager:
     5. Providing query methods for finding resources
     """
     
-    def __init__(self):
+    def __init__(self,db):
         """Initialize the ResourceManager."""
         # Cache of loaded resources
         self.resources = {}  # Dictionary to store loaded resources by ID
+        self.db = db  # Store the database session
         
         # Set up database metadata
         self._setup_db_metadata()
         
-        logger.info(f"{self.__class__.__name__} initialized")
-    
+        logger.info(f"{self.__class__.__name__} initialized")   
+             
     def _setup_db_metadata(self):
         """Set up SQLAlchemy metadata for the resources table."""
         self.metadata = MetaData()
@@ -543,3 +548,249 @@ class ResourceManager:
                 if resource:
                     resources.append(resource)
             return resources
+
+    def get_settlement_resource_sites(self, settlement_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all resource sites for a settlement.
+        
+        Args:
+            settlement_id (str): The settlement ID
+            
+        Returns:
+            List[Dict[str, Any]]: List of resource sites with their details
+        """
+        try:
+            # Get the settlement's resource sites with their types
+            sites = self.db.query(ResourceSite, SiteType).join(
+                SiteType, ResourceSite.site_type_id == SiteType.site_type_id
+            ).filter(
+                ResourceSite.settlement_id == settlement_id
+            ).all()
+            
+            # Convert to dictionaries
+            site_data = []
+            for site, site_type in sites:
+                site_data.append({
+                    "site_id": str(site.site_id),
+                    "settlement_id": str(site.settlement_id),
+                    "site_type_id": str(site.site_type_id),
+                    "site_type_name": site_type.name,
+                    "resource_category": site_type.resource_category,
+                    "resource_output": site_type.resource_output,
+                    "current_stage": site.current_stage,
+                    "depletion_level": site.depletion_level,
+                    "development_level": site.development_level,
+                    "production_multiplier": site.production_multiplier,
+                    "discovery_date": site.discovery_date.isoformat() if site.discovery_date else None,
+                    "last_updated": site.last_updated.isoformat() if site.last_updated else None,
+                    "associated_building_id": str(site.associated_building_id) if site.associated_building_id else None
+                })
+            
+            return site_data
+        except Exception as e:
+            logger.error(f"Error fetching resource sites for settlement {settlement_id}: {e}")
+            return []
+    
+    def update_resource_site_rumors(self, settlement_id: str) -> int:
+        """
+        Check if any undiscovered resource sites should become rumored.
+        
+        Args:
+            settlement_id (str): The settlement ID
+            
+        Returns:
+            int: Number of sites that became rumored
+        """
+        try:
+            # Get undiscovered sites for this settlement
+            undiscovered_sites = self.db.query(ResourceSite).filter(
+                ResourceSite.settlement_id == settlement_id,
+                ResourceSite.current_stage == "undiscovered"
+            ).all()
+            
+            updated_sites = []
+            
+            from app.game_state.managers.settlement_manager import SettlementManager
+            settlement_manager = SettlementManager()
+            settlement = settlement_manager.load_settlement(settlement_id)
+            
+            if not settlement:
+                return 0
+                
+            # Add missing import
+            import random
+                
+            for site in undiscovered_sites:
+                # Random chance based on development level of the settlement
+                development_level = settlement.get_property("development_level", 0)
+                base_chance = 0.05  # 5% base chance per check
+                development_bonus = development_level * 0.1  # +10% per development level
+                
+                # Check if the settlement has explorers/scouts
+                professions = settlement.get_property("professions", {})
+                scout_bonus = 0
+                if professions.get("scout", {}).get("count", 0) > 0 or professions.get("explorer", {}).get("count", 0) > 0:
+                    scout_bonus = 0.1  # +10% with scouts/explorers
+                
+                # Roll for rumor generation
+                final_chance = base_chance + development_bonus + scout_bonus
+                
+                if random.random() < final_chance:
+                    # Site becomes rumored
+                    site.current_stage = "rumored"
+                    updated_sites.append(site)
+                    
+                    # Check if settlement has an add_event method, if not, add it as a property
+                    if hasattr(settlement, 'add_event'):
+                        settlement.add_event("Rumors of a potential resource site have been circulating among the villagers.")
+                    else:
+                        events = settlement.get_property("events", [])
+                        events.append({
+                            "date": datetime.now().isoformat(),
+                            "message": "Rumors of a potential resource site have been circulating among the villagers."
+                        })
+                        settlement.set_property("events", events)
+            
+            # Commit changes
+            if updated_sites:
+                self.db.commit()
+                settlement_manager.save_settlement(settlement)
+                logger.info(f"Updated {len(updated_sites)} resource sites to 'rumored' status for settlement {settlement_id}")
+                
+            return len(updated_sites)
+            
+        except Exception as e:
+            logger.error(f"Error updating resource site rumors for settlement {settlement_id}: {e}")
+            return 0
+    
+    def update_resource_site(self, site_id: str, updates: Dict[str, Any]) -> bool:
+        """
+        Update a resource site with the provided updates.
+        
+        Args:
+            site_id (str): The site ID
+            updates (Dict[str, Any]): Dictionary of updates to apply
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            site = self.db.query(ResourceSite).filter(ResourceSite.site_id == site_id).first()
+            
+            if not site:
+                logger.warning(f"Resource site not found: {site_id}")
+                return False
+            
+            # Apply updates
+            for key, value in updates.items():
+                if hasattr(site, key):
+                    setattr(site, key, value)
+            
+            # Always update last_updated
+            site.last_updated = datetime.now()
+            
+            # If changing to discovered, set discovery date
+            if "current_stage" in updates and updates["current_stage"] == "discovered" and not site.discovery_date:
+                site.discovery_date = datetime.now()
+            
+            self.db.commit()
+            logger.info(f"Updated resource site {site_id}")
+            return True
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error updating resource site {site_id}: {e}")
+            return False
+    
+    def create_resource_site(self, settlement_id: str, site_type_id: str, 
+                            current_stage: str = "undiscovered", 
+                            production_multiplier: float = 1.0) -> Optional[str]:
+        """
+        Create a new resource site.
+        
+        Args:
+            settlement_id (str): The settlement ID
+            site_type_id (str): The site type ID
+            current_stage (str): Initial stage (default: undiscovered)
+            production_multiplier (float): Production multiplier
+            
+        Returns:
+            Optional[str]: Site ID if successful, None otherwise
+        """
+        try:
+            site_id = uuid.uuid4()
+            
+            site = ResourceSite(
+                site_id=site_id,
+                settlement_id=settlement_id,
+                site_type_id=site_type_id,
+                current_stage=current_stage,
+                depletion_level=0,
+                development_level=0,
+                production_multiplier=production_multiplier,
+                discovery_date=datetime.now() if current_stage != "undiscovered" else None,
+                last_updated=datetime.now()
+            )
+            
+            self.db.add(site)
+            self.db.commit()
+            
+            logger.info(f"Created new resource site {site_id} for settlement {settlement_id}")
+            return str(site_id)
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error creating resource site for settlement {settlement_id}: {e}")
+            return None
+    
+    def process_resource_site(self, site_id: str) -> Dict[str, Any]:
+        """
+        Process a resource site for production and depletion.
+        
+        Args:
+            site_id (str): The site ID
+            
+        Returns:
+            Dict[str, Any]: Processing result
+        """
+        try:
+            site = self.db.query(ResourceSite).options(
+                joinedload(ResourceSite.site_type)
+            ).filter(ResourceSite.site_id == site_id).first()
+            
+            if not site or site.current_stage == "undiscovered" or site.current_stage == "rumored":
+                return {"status": "error", "message": "Site not found or not discoverable"}
+            
+            # Only produce resources from operational sites
+            if site.current_stage not in ["mine", "farm", "camp", "garden", "outpost"]:
+                return {"status": "info", "message": "Site not operational for production"}
+            
+            # Increase depletion slightly
+            depletion_increase = random.uniform(0.001, 0.01)  # 0.1% to 1% per day
+            
+            # Apply development level to slow depletion
+            if site.development_level:
+                depletion_increase *= (1 - (site.development_level * 0.5))
+            
+            # Update depletion
+            new_depletion = min(1.0, site.depletion_level + depletion_increase)
+            site.depletion_level = new_depletion
+            
+            # Check if site is now depleted
+            if new_depletion >= 1.0 and site.current_stage != "depleted":
+                site.current_stage = "depleted"
+                
+            site.last_updated = datetime.now()
+            self.db.commit()
+            
+            return {
+                "status": "success",
+                "site_id": str(site.site_id),
+                "depletion_level": site.depletion_level,
+                "current_stage": site.current_stage
+            }
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error processing resource site {site_id}: {e}")
+            return {"status": "error", "message": f"Error processing site: {str(e)}"}

@@ -1,4 +1,3 @@
-# routers/trader.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
@@ -8,6 +7,8 @@ from database.connection import get_db
 from app.models.core import Traders, TraderInventory, ResourceTypes
 from app.schemas.trader import TraderResponse, TraderInventoryResponse, TradeRequest
 from app.game_state.manager import GameStateManager
+from app.game_state.services.logging_service import LoggingService
+from app.models.logging import EntityActionLog
 
 router = APIRouter(prefix="/traders", tags=["traders"])
 
@@ -139,3 +140,114 @@ async def complete_trader_task(
         raise HTTPException(status_code=400, detail=result["message"])
     
     return result
+
+@router.get("/{trader_id}/movement_history")
+async def get_trader_movement_history(
+    trader_id: UUID,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """
+    Get the movement history for a trader.
+    
+    Args:
+        trader_id: UUID of the trader
+        limit: Maximum number of records to return (default: 100)
+        
+    Returns:
+        List of movement logs
+    """
+    trader = db.query(Traders).filter(Traders.trader_id == trader_id).first()
+    if trader is None:
+        raise HTTPException(status_code=404, detail="Trader not found")
+    
+    logging_service = LoggingService(db)
+    movement_logs = logging_service.get_trader_movement_history(str(trader_id), limit)
+    
+    # Format logs for API response
+    formatted_logs = []
+    for log in movement_logs:
+        formatted_logs.append({
+            "timestamp": log.timestamp,
+            "trader_id": log.entity_id,
+            "trader_name": log.entity_name,
+            "action_type": log.action_type,
+            "action_subtype": log.action_subtype,
+            "from_location": {
+                "id": log.from_location_id,
+                "type": log.from_location_type,
+                "name": log.from_location_name
+            },
+            "to_location": {
+                "id": log.to_location_id,
+                "type": log.to_location_type,
+                "name": log.to_location_name
+            },
+            "details": log.details,
+            "game_day": log.game_day
+        })
+    
+    return formatted_logs
+
+@router.get("/{trader_id}/action_history")
+async def get_trader_action_history(
+    trader_id: UUID,
+    limit: int = 100,
+    action_type: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Get the complete action history for a trader.
+    
+    Args:
+        trader_id: UUID of the trader
+        limit: Maximum number of records to return (default: 100)
+        action_type: Optional filter for specific action type ('movement', 'trade', etc.)
+        
+    Returns:
+        List of action logs
+    """
+    trader = db.query(Traders).filter(Traders.trader_id == trader_id).first()
+    if trader is None:
+        raise HTTPException(status_code=404, detail="Trader not found")
+    
+    # Query action logs
+    query = db.query(EntityActionLog).filter(
+        EntityActionLog.entity_id == str(trader_id),
+        EntityActionLog.entity_type == 'trader'
+    )
+    
+    if action_type:
+        query = query.filter(EntityActionLog.action_type == action_type)
+    
+    action_logs = query.order_by(EntityActionLog.timestamp.desc()).limit(limit).all()
+    
+    # Format logs for API response
+    formatted_logs = []
+    for log in action_logs:
+        formatted_logs.append({
+            "timestamp": log.timestamp,
+            "trader_id": log.entity_id,
+            "trader_name": log.entity_name,
+            "action_type": log.action_type,
+            "action_subtype": log.action_subtype,
+            "from_location": {
+                "id": log.from_location_id,
+                "type": log.from_location_type,
+                "name": log.from_location_name
+            } if log.from_location_id else None,
+            "to_location": {
+                "id": log.to_location_id,
+                "type": log.to_location_type,
+                "name": log.to_location_name
+            } if log.to_location_id else None,
+            "related_entity": {
+                "id": log.related_entity_id,
+                "type": log.related_entity_type,
+                "name": log.related_entity_name
+            } if log.related_entity_id else None,
+            "details": log.details,
+            "game_day": log.game_day
+        })
+    
+    return formatted_logs

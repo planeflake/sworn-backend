@@ -220,6 +220,7 @@ class AreaService:
             
             # Filter by danger level if possible
             danger_appropriate = [et for et in appropriate_types if 
+                                  
                                 et.min_danger_level <= danger_level <= et.max_danger_level]
             
             if danger_appropriate:

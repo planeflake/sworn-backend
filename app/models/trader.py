@@ -11,6 +11,7 @@ class TraderModel(Base):
     description = Column(Text)
     trader_type = Column(String, default='merchant')
     current_location_id = Column(String, nullable=True)
+    current_settlement_id = Column(String, nullable=True)
     destination_id = Column(String, nullable=True)
     home_settlement_id = Column(String, nullable=True)
     # For properties that are naturally lists or dictionaries,
@@ -18,6 +19,7 @@ class TraderModel(Base):
     preferred_biomes = Column(JSON, default=[])
     preferred_settlements = Column(JSON, default=[])
     unacceptable_settlements = Column(JSON, default=[])
+    current_area_id = Column(String, nullable=True)
     visited_settlements = Column(JSON, default=[])
     faction_id = Column(String, nullable=True)
     reputation = Column(JSON, default={})  # e.g. settlement_id -> reputation value
@@ -43,3 +45,5 @@ class TraderModel(Base):
     locked_quests = Column(JSON, default=[])
     completed_quests = Column(JSON, default=[])
     known_secrets = Column(JSON, default=[])
+    active_task_id = Column(String, nullable=True)
+    task_queue = Column(JSON, default=[])

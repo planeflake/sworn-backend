@@ -7,7 +7,6 @@ app = Celery('rpg_game',
              backend='redis://localhost:6379/0',
              include=[
                  'app.workers.settlement_worker',
-                 'app.workers.settlement_worker_new',
                  'app.workers.trader_worker',
                  'app.workers.animal_worker',
                  'app.workers.item_worker',
@@ -30,24 +29,24 @@ app.conf.update(
     # Define your beat schedule if needed
     beat_schedule={
         'process-all-settlements': {
-            'task': 'app.workers.settlement_worker_new.process_all_settlements',
-            'schedule': 30.0,  # Every 30 seconds
+            'task': 'app.workers.settlement_worker.process_all_settlements',
+            'schedule': 10.0,  # Every 3 minutes
         },
         'process-all-traders': {
             'task': 'app.workers.trader_worker.process_all_traders',
-            'schedule': 20.0,  # Every 20 seconds
+            'schedule': 120.0,  # Every 2 minutes
         },
         'process-all-traders-mcts': {
             'task': 'app.workers.trader_worker.process_all_traders',
-            'schedule': 30.0,  # Every 30 seconds
+            'schedule': 300.0,  # Every 30 seconds
         },
         'advance-game-day': {
             'task': 'app.workers.world_worker.advance_game_day',
-            'schedule': 120.0,  # Every 2 minutes (simulates daily time progression)
+            'schedule': 1200.0,  # Every 2 minutes (simulates daily time progression)
         },
         'process-all-animals': {
             'task': 'app.workers.animal_worker.process_all_animals',
-            'schedule': 60.0,  # Every minute
+            'schedule': 600.0,  # Every minute
         },
         'animal-migrations': {
             'task': 'app.workers.animal_worker.migrate_animals',
@@ -55,7 +54,7 @@ app.conf.update(
         },
         'process-all-areas': {
             'task': 'app.workers.area_worker.process_all_areas',
-            'schedule': 90.0,  # Every 90 seconds
+            'schedule': 900.0,  # Every 90 seconds
         },
         'process-expired-tasks': {
             'task': 'app.workers.task_worker.process_expired_tasks',
@@ -71,12 +70,12 @@ app.conf.update(
         },
         'create-random-trader-tasks': {
             'task': 'app.workers.trader_worker.create_random_trader_tasks',
-            'schedule': 1800.0,  # Every 30 minutes
+            'schedule': 300.0,  # Every 30 seconds
             'kwargs': {'task_count': 2}  # Create 2 random tasks each time
         },
         'process-all-items': {
             'task': 'app.workers.item_worker_new.process_all_items',
-            'schedule': 60.0,  # Every minute
+            'schedule': 600.0,  # Every minute
         }
     }
 )

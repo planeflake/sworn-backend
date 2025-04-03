@@ -9,7 +9,7 @@ from datetime import datetime
 
 from database.connection import get_db
 from app.game_state.services.settlement_service import SettlementService
-from app.workers.settlement_worker_new import (
+from app.workers.settlement_worker import (
     process_settlement_growth, 
     start_building_construction,
     start_building_repair,
@@ -20,8 +20,11 @@ from app.models.core import (
     SettlementBuildings as Buildings, 
     ResourceSites, 
     ResourceSiteTypes,
-    SettlementResources as Resources
+    SettlementResources
 )
+
+from app.models.resource import Resource
+
 from app.schemas.settlement import (
     SettlementResponse, 
     BuildingResponse, 
@@ -165,8 +168,36 @@ async def get_settlement_resources(settlement_id: str, db: Session = Depends(get
     """
     Get all resources in a settlement.
     """
-    resources = db.query(Resources).filter(Resources.settlement_id == settlement_id).all()
-    return resources
+    # Query settlement resources and join with ResourceTypes to get resource names
+    from app.models.core import ResourceTypes
+    resources = db.query(SettlementResources).filter(
+        SettlementResources.settlement_id == settlement_id
+    ).all()
+    
+    # Get resource names separately to avoid join issues
+    resource_names = {}
+    for resource in resources:
+        resource_type = db.query(ResourceTypes).filter(
+            ResourceTypes.resource_type_id == resource.resource_type_id
+        ).first()
+        if resource_type:
+            resource_names[resource.resource_type_id] = resource_type.resource_name
+
+    # Map the results into the response model
+    resource_list = [
+        ResourceResponse(
+            settlement_resource_id=resource.settlement_resource_id,
+            settlement_id=resource.settlement_id,
+            resource_type_id=resource.resource_type_id,
+            quantity=resource.quantity,
+            resource_name=resource_names.get(resource.resource_type_id, "Unknown Resource"),
+            created_at=resource.created_at or datetime.now(),
+            last_updated=resource.last_updated or datetime.now(),
+        )
+        for resource in resources
+    ]
+
+    return resource_list
 
 @router.post("/{settlement_id}/process", response_model=dict)
 async def trigger_settlement_processing(

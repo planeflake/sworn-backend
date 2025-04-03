@@ -57,24 +57,4 @@ def get_seasonal_modifiers(world_id):
     finally:
         db.close()
      
-@app.task
-def process_all_settlements(world_id=None):
-    db = SessionLocal()
-    try:
-        query = db.query(Settlements)
-        
-        # Filter by world if provided
-        if world_id:
-            query = query.filter(Settlements.world_id == world_id)
-            
-        settlements = query.all()
-        
-        # Import here to avoid circular import
-        from app.workers.settlement_worker import process_settlement_production
-        
-        for settlement in settlements:
-            process_settlement_production.delay(str(settlement.settlement_id))
-        
-        return {"status": "success", "count": len(settlements)}
-    finally:
-        db.close()
+# This function was moved to settlement_worker.py to avoid circular imports

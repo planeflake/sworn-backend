@@ -178,10 +178,12 @@ def create_trader_assistance_task(trader_id: str, area_id: str, world_id: str, i
         db = SessionLocal()
         try:
             # Get trader and area information
-            from app.models.core import Traders, Areas
+            from app.models.trader import TraderModel
+            from app.models.area import AreaModel
             
-            trader = db.query(Traders).filter(Traders.trader_id == trader_id).first()
-            area = db.query(Areas).filter(Areas.area_id == area_id).first()
+            trader = db.query(TraderModel).filter(TraderModel.trader_id == trader_id).first()
+            logging.info(f"Trader: {trader.npc_name if trader else None}")
+            area = db.query(AreaModel).filter(AreaModel.area_id == area_id).first()
             
             if not trader or not area:
                 logger.error(f"Trader {trader_id} or area {area_id} not found")
@@ -189,7 +191,9 @@ def create_trader_assistance_task(trader_id: str, area_id: str, world_id: str, i
             
             trader_name = trader.npc_name if trader.npc_name else f"Trader {trader_id}"
             area_name = area.area_name if hasattr(area, 'area_name') else "unknown area"
-            
+            area_danger_level = area.danger_level if hasattr(area, 'danger_level') else 0
+            controlling_faction = area.controlling_faction if hasattr(area, 'controlling_faction') else None
+
             # Generate task details based on issue type
             issue_descriptions = {
                 "bandit_attack": f"Trader {trader_name} is being attacked by bandits in {area_name}. Help fight them off so the trader can continue their journey.",
@@ -238,10 +242,58 @@ def create_trader_assistance_task(trader_id: str, area_id: str, world_id: str, i
             if issue_type == "bandit_attack" and hasattr(trader, 'hired_guards'):
                 gold_reward += trader.hired_guards * 15
             
-            # Create the task without using asyncio.run
-            # This is a placeholder implementation that avoids async issues in Celery
+            # Create the task using a direct database approach to avoid asyncio issues
+            from app.models.tasks import Tasks, TaskTypes
             import uuid
+            import json
+            from datetime import datetime
+            
+            # Get the task type ID for trader assistance
+            task_type = db.query(TaskTypes).filter(TaskTypes.code == "trader_assistance").first()
+            if not task_type:
+                logger.error(f"Task type 'trader_assistance' not found")
+                return {"status": "error", "message": "Task type not found"}
+            
+            # Create task ID
             task_id = str(uuid.uuid4())
+            
+            # Set up rewards
+            rewards = {
+                "gold": gold_reward,
+                "reputation": reputation_reward,
+                "xp": xp_reward
+            }
+            
+            # Create task data
+            task_data = {
+                "task_type_display": "Trader Assistance",
+                "issue_type": issue_type
+            }
+            
+            # Create the task record directly
+            new_task = Tasks(
+                task_id=task_id,
+                title=title,
+                description=description,
+                task_type_id=task_type.task_type_id,
+                world_id=world_id,
+                location_id=area_id,
+                target_id=trader_id,
+                difficulty=difficulty,
+                duration_minutes=30,  # Default 30 minutes
+                requirements={},
+                rewards=rewards,
+                task_data=task_data,
+                repeatable=False,
+                status='available',
+                is_active=True,
+                created_at=datetime.utcnow()
+            )
+            
+            # Add and commit
+            db.add(new_task)
+            db.commit()
+            
             result = {
                 "status": "success",
                 "message": "Task created successfully",
@@ -254,9 +306,14 @@ def create_trader_assistance_task(trader_id: str, area_id: str, world_id: str, i
             if result.get("status") == "success" and result.get("task_id"):
                 # Update trader to be blocked by this task
                 trader.can_move = False
+                logging.info(f"Blocking trader {trader_id} from moving until task {result.get('task_id')} is completed")
+                db.refresh(trader)
                 trader.active_task_id = result.get("task_id")
                 db.commit()
                 
+                trader = db.query(TraderModel).filter(TraderModel.trader_id == trader_id).first()
+                logging.info(f"Trader: {trader.npc_name if trader else None}")
+                logging.info(f"Trader: {trader.active_task_id if trader else None}")
                 logger.info(f"Trader {trader_id} is now waiting for task {result.get('task_id')} completion")
             
             return result

@@ -6,7 +6,7 @@ import os
 
 from database.connection import get_db
 from app.routers import world, player, settlement, trader, area, animal, item, equipment, task
-from app.routers import trader_router_new, settlement_router_new
+from app.routers import trader_router_new
 
 from typing import Dict, List
 
@@ -59,7 +59,6 @@ app.include_router(task.router)
 
 # Include new routers using entity-manager pattern
 app.include_router(trader_router_new.router)
-app.include_router(settlement_router_new.router)
 
 # Mount static files directory
 static_directory = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "old", "static")

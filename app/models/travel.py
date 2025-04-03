@@ -28,7 +28,7 @@ class Area(AreaBase):
     last_updated: datetime
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 # Travel Route Models
 class TravelRouteBase(BaseModel):
@@ -50,7 +50,7 @@ class TravelRoute(TravelRouteBase):
     last_updated: Optional[datetime] = None
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 # Current Weather State Models (for tracking active weather)
 class WorldWeatherStateBase(BaseModel):
@@ -68,7 +68,7 @@ class WorldWeatherState(WorldWeatherStateBase):
     weather_state_id: int
     
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 # Trader Transport Models (for tracking what transport each trader has)
 class TraderTransportBase(BaseModel):
@@ -86,7 +86,7 @@ class TraderTransport(TraderTransportBase):
     trader_transport_id: int
     
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 # Journey Models (for tracking travel progress)
 class JourneyBase(BaseModel):
@@ -110,7 +110,7 @@ class Journey(JourneyBase):
     completed_at: Optional[datetime] = None
     
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 # Utility Models for Movement Calculation
 class MovementParams(BaseModel):

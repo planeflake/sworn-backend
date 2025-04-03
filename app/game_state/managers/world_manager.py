@@ -612,3 +612,83 @@ class WorldManager:
         """
         location_state = self.get_location_state(location_id)
         return location_state.get("weather", "clear")
+        
+    def get_world_info(self, world_id: str) -> Dict[str, Any]:
+        """
+        Get information about a world.
+        
+        Args:
+            world_id (str): The ID of the world to get information for
+            
+        Returns:
+            Dict[str, Any]: World information including current season, day, etc.
+        """
+        # For now, we'll use a direct database query to the Worlds table
+        from app.models.core import Worlds
+        from database.connection import SessionLocal
+        
+        db = SessionLocal()
+        try:
+            world = db.query(Worlds).filter(Worlds.world_id == world_id).first()
+            
+            if not world:
+                logger.warning(f"World not found: {world_id}")
+                return {"status": "error", "message": "World not found"}
+            
+            # Extract the relevant information
+            world_info = {
+                "world_id": world_id,
+                "world_name": world.world_name,
+                "current_season": world.current_season,
+                "day_of_season": world.day_of_season,
+                "days_per_season": world.days_per_season,
+                "current_year": world.current_year,
+                "current_game_day": world.current_game_day
+            }
+            
+            return world_info
+        finally:
+            db.close()
+    
+    def get_current_day(self) -> int:
+        """
+        Get the current game day. For now, returns a default value.
+        In a real implementation, this would get the current day from a global time tracker.
+        
+        Returns:
+            int: Current game day
+        """
+        # For now, use a direct query to get the current day of the first world
+        from app.models.core import Worlds
+        from database.connection import SessionLocal
+        
+        db = SessionLocal()
+        try:
+            # Get the first world (or a specific world in a more realistic scenario)
+            world = db.query(Worlds).first()
+            
+            if not world:
+                logger.warning("No worlds found, returning default day value")
+                return 1
+            
+            return world.current_game_day or 1
+        finally:
+            db.close()
+            
+    def get_location_state(self, location_id: str) -> Dict[str, Any]:
+        """
+        Get the current state of a location.
+        
+        Args:
+            location_id (str): The ID of the location
+            
+        Returns:
+            Dict[str, Any]: Location state information
+        """
+        # For now, return a default state
+        # In a real implementation, this would query location information
+        return {
+            "weather": "clear",
+            "status": "normal",
+            "threats": []
+        }

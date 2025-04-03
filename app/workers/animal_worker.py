@@ -2,7 +2,7 @@
 from app.workers.celery_app import app
 from app.game_state.services.animal_service import AnimalService
 from sqlalchemy.orm import Session
-from database.connection import SessionLocal
+from database.connection import SessionLocal, get_db
 import logging
 from datetime import datetime
 

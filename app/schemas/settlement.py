@@ -38,7 +38,7 @@ class ResourceSiteStageResponse(BaseModel):
     next_stage: Optional[str] = None
     
     class Config:
-        orm_mode = True
+        has_attribute = True
 
 class ResourceSiteCreate(BaseModel):
     site_type_id: UUID4
@@ -64,7 +64,7 @@ class ResourceSiteResponse(ResourceSiteBase, TimeStampModel):
     stage_details: Optional[ResourceSiteStageResponse] = None  # Current stage details
     
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 class SettlementResponse(SettlementBase, TimeStampModel):
     settlement_id: UUID4
@@ -96,7 +96,7 @@ class BuildingResponse(BuildingBase, TimeStampModel):
     constructed_at: Optional[datetime] = None
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 class ResourceBase(BaseModel):
     resource_type_id: UUID4
@@ -111,7 +111,7 @@ class ResourceResponse(ResourceBase, TimeStampModel):
     resource_name: str  # This would be joined from resource_types
 
     class Config:
-        orm_mode = True
+        has_attributes = True
 
 class BuildRequest(BaseModel):
     location_x: Optional[float] = None

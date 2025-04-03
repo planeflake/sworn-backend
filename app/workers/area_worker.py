@@ -1,13 +1,150 @@
 # app/workers/area_worker.py
 import logging
 import random
-from typing import Dict, Any, Optional, Tuple
+import json
+from typing import Dict, Any, Optional, Tuple, List
+from collections import deque
+from sqlalchemy.orm import Session
 
 from app.workers.celery_app import app
 from database.connection import SessionLocal
 from app.game_state.services.area_service import AreaService
+from app.models.core import Areas, Settlements
 
 logger = logging.getLogger(__name__)
+
+def find_path_between_settlements(start_id: str, end_id: str, db: Session) -> List[str]:
+    """
+    Find a path of areas between two settlements.
+    
+    This is a non-async version of the trader service method for use in Celery tasks.
+    
+    Args:
+        start_id: Starting settlement ID
+        end_id: Destination settlement ID
+        db: Database session
+        
+    Returns:
+        List[str]: List of area IDs forming a path, or empty list if no path
+    """
+    logger.info(f"Finding path between settlements {start_id} and {end_id}")
+    
+    try:
+        # Get areas connected to start settlement
+        start_areas = get_settlement_connected_areas(start_id, db)
+        if not start_areas:
+            logger.warning(f"No connected areas found for settlement {start_id}")
+            return []
+        
+        # Get areas connected to destination settlement
+        end_areas = get_settlement_connected_areas(end_id, db)
+        if not end_areas:
+            logger.warning(f"No connected areas found for settlement {end_id}")
+            return []
+        
+        # Check if settlements share a common area (direct connection)
+        common_areas = set(start_areas).intersection(set(end_areas))
+        if common_areas:
+            common_area = list(common_areas)[0]
+            logger.info(f"Settlements share common area {common_area}")
+            return [common_area]
+        
+        # Simple breadth-first search
+        queue = deque([(area_id, [area_id]) for area_id in start_areas])
+        visited = set(start_areas)
+        
+        while queue:
+            current_area, path = queue.popleft()
+            
+            # Get connected areas
+            neighbors = get_area_connected_areas(current_area, db)
+            
+            for neighbor in neighbors:
+                if neighbor in end_areas:
+                    # Found a path to destination
+                    final_path = path + [neighbor]
+                    logger.info(f"Found path through {len(final_path)} areas")
+                    return final_path
+                
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    queue.append((neighbor, path + [neighbor]))
+        
+        # If we get here, no path was found - return a simple direct path as fallback
+        if start_areas and end_areas:
+            logger.info(f"No path found, returning simple path with first areas from each end")
+            return [start_areas[0], end_areas[0]]
+        
+        return []
+        
+    except Exception as e:
+        logger.exception(f"Error finding path between settlements: {e}")
+        return []
+
+def get_settlement_connected_areas(settlement_id: str, db: Session) -> List[str]:
+    """
+    Get all areas directly connected to a settlement.
+    
+    Args:
+        settlement_id: The settlement ID
+        db: Database session
+        
+    Returns:
+        List[str]: List of connected area IDs
+    """
+    try:
+        # Query the areas table for connections to this settlement
+        areas = db.query(Areas).all()
+        
+        connected_areas = []
+        for area in areas:
+            # Check if this area has connected_settlements attribute
+            if not hasattr(area, 'connected_settlements'):
+                continue
+            
+            # Parse the connected_settlements JSON if it exists
+            if area.connected_settlements:
+                try:
+                    settlement_ids = json.loads(area.connected_settlements)
+                    if settlement_id in settlement_ids:
+                        connected_areas.append(area.area_id)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+        
+        return connected_areas
+        
+    except Exception as e:
+        logger.exception(f"Error getting connected areas for settlement {settlement_id}: {e}")
+        return []
+
+def get_area_connected_areas(area_id: str, db: Session) -> List[str]:
+    """
+    Get all areas directly connected to another area.
+    
+    Args:
+        area_id: The area ID
+        db: Database session
+        
+    Returns:
+        List[str]: List of connected area IDs
+    """
+    try:
+        area = db.query(Areas).filter(Areas.area_id == area_id).first()
+        if not area or not hasattr(area, 'connected_areas'):
+            return []
+        
+        # Parse connected_areas JSON if it exists
+        if area.connected_areas:
+            try:
+                return json.loads(area.connected_areas)
+            except (json.JSONDecodeError, TypeError):
+                logger.warning(f"Invalid connected_areas JSON for area {area_id}")
+        
+        return []
+        
+    except Exception as e:
+        logger.exception(f"Error getting connected areas for area {area_id}: {e}")
+        return []
 
 @app.task
 def generate_encounter(area_id: str, entity_id: Optional[str] = None) -> Dict[str, Any]:

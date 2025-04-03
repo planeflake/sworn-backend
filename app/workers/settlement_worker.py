@@ -2,10 +2,12 @@
 import json
 import uuid
 from datetime import datetime
+from typing import Optional
+import logging
 
 from app.workers.celery_app import app
 from app.workers.shared_worker_utils import get_seasonal_modifiers
-from database.connection import SessionLocal
+from database.connection import SessionLocal, get_db
 
 from app.models.core import (
     Settlements,
@@ -17,15 +19,40 @@ from app.models.core import (
     Worlds
 )
 
-import logging
+# Import the service that contains the class-based implementation
+from app.game_state.services.settlement_service import SettlementService
 
 logger = logging.getLogger(__name__)
 
 @app.task
 def process_settlement_production(settlement_id):
+    """
+    Process resource production for a settlement.
+    
+    This is the legacy implementation. For new code, use process_settlement_growth instead.
+    
+    Args:
+        settlement_id: The ID of the settlement to process
+        
+    Returns:
+        dict: Result of the settlement production processing
+    """
     db = SessionLocal()
     try:
-        # Process resources from various sources
+        # Try the new class-based implementation first
+        try:
+            service = SettlementService(db)
+            result = service.process_settlement_growth(settlement_id)
+            if result["status"] == "success":
+                logger.info(f"Processed production for settlement {settlement_id} using new implementation")
+                return {"status": "success", "settlement_id": settlement_id}
+            else:
+                # Fall back to legacy implementation
+                logger.warning(f"New implementation failed, falling back to legacy: {result.get('message')}")
+        except Exception as e:
+            logger.warning(f"Error in new implementation, falling back to legacy: {e}")
+            
+        # Legacy implementation
         # 1. Process resources from resource sites
         process_resource_sites(db, settlement_id)
         
@@ -33,10 +60,10 @@ def process_settlement_production(settlement_id):
         
         # 3. Process resource consumption (to be implemented)
         
-        print(f"Processed production for settlement {settlement_id}")
+        logger.info(f"Processed production for settlement {settlement_id} using legacy implementation")
         return {"status": "success", "settlement_id": settlement_id}
     except Exception as e:
-        print(f"Error processing settlement {settlement_id}: {str(e)}")
+        logger.error(f"Error processing settlement {settlement_id}: {str(e)}")
         return {"status": "error", "settlement_id": settlement_id, "error": str(e)}
     finally:
         db.close()
@@ -80,7 +107,7 @@ def process_resource_sites(db, settlement_id):
         ).first()
         
         if not site_type:
-            print(f"Site type not found for site {site.site_id}")
+            logger.warning(f"Site type not found for site {site.site_id}")
             continue
         
         # Hardcoded production rates for different site stages
@@ -118,7 +145,7 @@ def process_resource_sites(db, settlement_id):
             if site.current_stage == "discovered":
                 production_rates = site_stage_production["discovered"]
             else:
-                print(f"No production data for stage {site.current_stage} of site {site.site_id}")
+                logger.warning(f"No production data for stage {site.current_stage} of site {site.site_id}")
                 continue
             
         # Map to use actual resource IDs in your database
@@ -156,7 +183,7 @@ def process_resource_sites(db, settlement_id):
             resource_type_id = resource_id_map.get(resource_code)
             
             if not resource_type_id:
-                print(f"Resource type '{resource_code}' not found in resource_id_map")
+                logger.warning(f"Resource type '{resource_code}' not found in resource_id_map")
                 continue
             
             # Check if the settlement already has this resource
@@ -169,7 +196,7 @@ def process_resource_sites(db, settlement_id):
                 # Update existing resource
                 settlement_resource.quantity += produced_amount
                 settlement_resource.last_updated = timestamp
-                print(f"Added {produced_amount} {resource_code} to settlement {settlement_id} from {site_type.site_name}")
+                logger.info(f"Added {produced_amount} {resource_code} to settlement {settlement_id} from {site_type.site_name}")
             else:
                 # Create new resource entry
                 new_resource = SettlementResources(
@@ -180,7 +207,7 @@ def process_resource_sites(db, settlement_id):
                     last_updated=timestamp
                 )
                 db.add(new_resource)
-                print(f"Created new resource entry with {produced_amount} {resource_code} for settlement {settlement_id}")
+                logger.info(f"Created new resource entry with {produced_amount} {resource_code} for settlement {settlement_id}")
         
         # Update the resource site - increase depletion slightly for non-renewable resources
         if site_type.site_category == "mining":
@@ -193,7 +220,7 @@ def process_resource_sites(db, settlement_id):
                 if site.depletion_level >= 1.0:
                     site.depletion_level = 1.0
                     site.current_stage = "depleted"
-                    print(f"Resource site {site.site_id} ({site_type.site_name}) has become depleted")
+                    logger.info(f"Resource site {site.site_id} ({site_type.site_name}) has become depleted")
         
         # Update last_updated timestamp
         site.last_updated = timestamp
@@ -201,5 +228,199 @@ def process_resource_sites(db, settlement_id):
     # Commit all changes
     db.commit()
 
-    # workers/settlement_worker.py (additional function)
 
+# New settlement worker functions using the class-based architecture
+
+@app.task
+def process_settlement_growth(settlement_id: str):
+    """
+    Process the growth and production of a settlement.
+    
+    This task delegates to the SettlementService, which contains the actual implementation
+    using the new class-based game state architecture.
+    
+    Args:
+        settlement_id (str): The ID of the settlement to process
+        
+    Returns:
+        dict: Result of the settlement processing
+    """
+    logger.info(f"Processing growth for settlement {settlement_id}")
+    
+    # Create database session
+    db = SessionLocal()
+    try:
+        # Create service with the database session
+        service = SettlementService(db)
+        
+        # Delegate to service implementation
+        result = service.process_settlement_growth(settlement_id)
+        
+        # Log the result
+        if result["status"] == "success":
+            logger.info(f"Successfully processed settlement {settlement_id}")
+            logger.debug(f"Settlement processing details: {result}")
+        else:
+            logger.warning(f"Failed to process settlement {settlement_id}: {result.get('message', 'Unknown error')}")
+        
+        return result
+    except Exception as e:
+        logger.exception(f"Error in process_settlement_growth task: {e}")
+        return {"status": "error", "message": f"Task error: {str(e)}"}
+    finally:
+        db.close()
+
+@app.task
+def create_new_settlement(name: str, location_id: str, world_id: str):
+    """
+    Create a new settlement at the specified location.
+    
+    Args:
+        name (str): The name of the settlement
+        location_id (str): The ID of the location (area)
+        world_id (str): The ID of the world
+        
+    Returns:
+        dict: Result of settlement creation
+    """
+    logger.info(f"Creating new settlement {name} at location {location_id}")
+    
+    # Create database session
+    db = SessionLocal()
+    try:
+        # Create service with the database session
+        service = SettlementService(db)
+        
+        # Delegate to service implementation
+        result = service.create_settlement(name, location_id, world_id)
+        
+        # Log the result
+        if result["status"] == "success":
+            logger.info(f"Successfully created settlement {name} (ID: {result.get('settlement_id')})")
+        else:
+            logger.warning(f"Failed to create settlement {name}: {result.get('message', 'Unknown error')}")
+        
+        return result
+    except Exception as e:
+        logger.exception(f"Error in create_new_settlement task: {e}")
+        return {"status": "error", "message": f"Task error: {str(e)}"}
+    finally:
+        db.close()
+
+@app.task
+def start_building_construction(settlement_id: str, building_type: str):
+    """
+    Start construction of a new building in a settlement.
+    
+    Args:
+        settlement_id (str): The settlement ID
+        building_type (str): The type of building to construct
+        
+    Returns:
+        dict: Result of construction initiation
+    """
+    logger.info(f"Starting construction of {building_type} in settlement {settlement_id}")
+    
+    # Create database session
+    db = SessionLocal()
+    try:
+        # Create service with the database session
+        service = SettlementService(db)
+        
+        # Delegate to service implementation
+        result = service.start_building_construction(settlement_id, building_type)
+        
+        # Log the result
+        if result["status"] == "success":
+            logger.info(f"Successfully started construction of {building_type} in settlement {settlement_id}")
+        else:
+            logger.warning(f"Failed to start construction in settlement {settlement_id}: {result.get('message', 'Unknown error')}")
+        
+        return result
+    except Exception as e:
+        logger.exception(f"Error in start_building_construction task: {e}")
+        return {"status": "error", "message": f"Task error: {str(e)}"}
+    finally:
+        db.close()
+
+@app.task
+def start_building_repair(settlement_id: str, building_id: str):
+    """
+    Start repair of a damaged building.
+    
+    Args:
+        settlement_id (str): The settlement ID
+        building_id (str): The building ID
+        
+    Returns:
+        dict: Result of repair initiation
+    """
+    logger.info(f"Starting repair of building {building_id} in settlement {settlement_id}")
+    
+    # Create database session
+    db = SessionLocal()
+    try:
+        # Create service with the database session
+        service = SettlementService(db)
+        
+        # Delegate to service implementation
+        result = service.start_building_repair(settlement_id, building_id)
+        
+        # Log the result
+        if result["status"] == "success":
+            logger.info(f"Successfully started repair of building {building_id} in settlement {settlement_id}")
+        else:
+            logger.warning(f"Failed to start repair in settlement {settlement_id}: {result.get('message', 'Unknown error')}")
+        
+        return result
+    except Exception as e:
+        logger.exception(f"Error in start_building_repair task: {e}")
+        return {"status": "error", "message": f"Task error: {str(e)}"}
+    finally:
+        db.close()
+
+@app.task
+def process_all_settlements(world_id: Optional[str] = None):
+    """
+    Process all settlements in a world (or all worlds if none specified).
+    
+    This task delegates to the SettlementService, which contains the actual implementation
+    using the new class-based game state architecture.
+    
+    Args:
+        world_id (str, optional): The world ID to process settlements for, or None for all worlds
+        
+    Returns:
+        dict: Result of processing all settlements
+    """
+    logger.info(f"Processing all settlements" + (f" in world {world_id}" if world_id else ""))
+    
+    # Create database session
+    db = SessionLocal()
+    try:
+        # Create service with the database session
+        service = SettlementService(db)
+        
+        # Since we need to call an async method from a sync context, we'll use a helper
+        import asyncio
+        
+        # Create a new event loop for this task
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        # Run the async method and get its result
+        result = loop.run_until_complete(service.process_all_settlements(world_id))
+        loop.close()
+        
+        # Log the result
+        if result["status"] == "success":
+            logger.info(f"Successfully processed {result.get('processed', 0)}/{result.get('total', 0)} settlements")
+        else:
+            logger.warning(f"Failed to process settlements: {result.get('message', 'Unknown error')}")
+        
+        return result
+    except Exception as e:
+        logger.exception(f"Error in process_all_settlements task: {e}")
+        return {"status": "error", "message": f"Task error: {str(e)}"}
+    finally:
+        db.close()

@@ -4,7 +4,7 @@ from database.connection import SessionLocal
 from sqlalchemy import text
 from app.models.core import Worlds, Settlements
 from app.models.seasons import Seasons
-from app.workers.shared_worker_utils import process_all_settlements
+from app.workers.settlement_worker import process_all_settlements
 import logging
 
 logger = logging.getLogger(__name__)

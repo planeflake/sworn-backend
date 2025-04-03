@@ -140,6 +140,18 @@ class BuildingTypes(Base):
     building_category = Column(String, nullable=True)
     description = Column(Text, nullable=True)
 
+    @classmethod
+    def to_dict(cls, building):
+        return {
+            'building_type_id': getattr(building, 'building_type_id', None),
+            'construction_time': getattr(building, 'construction_time', None),
+            'resource_requirements': getattr(building, 'resource_requirements', None),
+            'building_code': getattr(building, 'building_code', None),
+            'building_name': getattr(building, 'building_name', None),
+            'building_category': getattr(building, 'building_category', None),
+            'description': getattr(building, 'description', None)
+        }
+
 class Settlements(Base):
     __tablename__ = 'settlements'
     last_updated = Column(DateTime, nullable=True)
@@ -171,6 +183,18 @@ class SettlementBuildings(Base):
     constructed_at = Column(DateTime, nullable=True)
     construction_status = Column(String, nullable=True)
 
+    @classmethod
+    def to_dict(cls, building):
+        return {
+            'settlement_building_id': getattr(building, 'settlement_building_id', None),
+            'construction_progress': getattr(building, 'construction_progress', None),
+            'health': getattr(building, 'health', None),
+            'staff_assigned': getattr(building, 'staff_assigned', None),
+            'is_operational': getattr(building, 'is_operational', None),
+            'constructed_at': getattr(building, 'constructed_at', None),
+            'construction_status': getattr(building, 'construction_status', None)
+        }
+
 class SettlementResources(Base):
     __tablename__ = 'settlement_resources'
     settlement_resource_id = Column(String, nullable=False, primary_key=True)
@@ -178,6 +202,7 @@ class SettlementResources(Base):
     resource_type_id = Column(String, nullable=True)
     quantity = Column(Integer, nullable=True)
     last_updated = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=True)
 
 class NpcTypes(Base):
     __tablename__ = 'npc_types'
@@ -286,10 +311,12 @@ class AreaEncounterTypes(Base):
     encounter_name = Column(String, nullable=False)
     encounter_category = Column(String, nullable=True)  # combat, reward, neutral, etc.
     min_danger_level = Column(Integer, nullable=True)  # Minimum area danger level for this encounter
+    max_danger_level = Column(Integer, nullable=True)  # Maximum area danger level for this encounter
     compatible_area_types = Column(String, nullable=True)  # JSON array of area types
     rarity = Column(Float, nullable=True)  # 0.0-1.0
     description = Column(Text, nullable=True)
     possible_outcomes = Column(String, nullable=True)  # JSON array of outcome IDs
+    applicable_area_types = Column(String, nullable=True)  # JSON array of area types
     
 class AreaEncounterOutcomes(Base):
     __tablename__ = 'area_encounter_outcomes'
