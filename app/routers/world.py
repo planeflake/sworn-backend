@@ -9,7 +9,7 @@ from app.models.core import Worlds, Themes
 from app.schemas.world import WorldResponse, WorldStateResponse
 from app.game_state.manager import GameStateManager
 # Temporarily comment this out to get the server running
-# from app.workers.time_worker import advance_game_day
+from app.workers.time_worker import advance_game_day
 
 router = APIRouter(prefix="/worlds", tags=["worlds"])
 
@@ -106,8 +106,14 @@ async def get_world_state(world_id: UUID, db: Session = Depends(get_db)):
 
 @router.post("/{world_id}/advance-day")
 async def trigger_day_advance(world_id: UUID, background_tasks: BackgroundTasks):
-    # Temporarily disabled
-    return {"status": "Day advancement is temporarily disabled"}
+    # Schedule the tick in the background via Celery
+    task = advance_game_day.delay(str(world_id))
+    return {
+        "status": "Task submitted",
+        "task_id": task.id,
+        "world_id": str(world_id)
+    }
+
 
 @router.get("/{world_id}/seasons")
 async def get_seasons(world_id: UUID, db: Session = Depends(get_db)):
@@ -190,3 +196,5 @@ async def get_seasons(world_id: UUID, db: Session = Depends(get_db)):
         "days_per_season": getattr(world, "days_per_season", 30),
         "seasons": formatted_seasons
     }
+
+from app.workers.world_worker import advance_game_day  # <-- correct module
